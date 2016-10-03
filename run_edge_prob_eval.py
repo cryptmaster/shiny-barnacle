@@ -35,9 +35,9 @@ testRev_idx = {};
 for n in range(len(data['Test Reviewer List'])) :
     testRev_idx[data['Test Reviewer List'][n]] = n;
 #end
-business_idx = {};
-for n in range(len(data['Reviewed Business List'])) : 
-    business_idx[data['Reviewed Business List'][n]] = n; 
+reviews_idx = {};
+for n in range(len(data['Reviewer Reviews'])) : 
+    reviews_idx[data['Reviewer Reviews'][n]] = n; 
 #end
 print 'sizeof business_idx = %d' %(len(business_idx));
 print 'sizeof reviewer_idx = %d' %(len(reviewer_idx));
@@ -53,7 +53,7 @@ reviewer_revs = {};
 r_pos = [];
 r_neg = [];
 for uid in reviewer_idx :
-    for rid in data['Reviewer Reviews'][uid] :
+    for rid in reviews_idx[uid] :
 	reviewInfo = data['Review Information'][rid];
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
@@ -66,24 +66,15 @@ for uid in reviewer_idx :
 	    business_revs[bid][reviewID] = [];
         business_revs[bid][reviewID].append(rid);
 
-	review = [];
-	review.append(bid);
-	
         if stars in pos_list :
             r_pos.append(rid);
 	    pos_bus_revs[bid].append(reviewID);
-	    review.append(1);
         elif stars in neg_list :
             r_neg.append(rid);
-	    review.append(-1);
-
-        if rid not in reviewer_revs :
-            reviewer_revs[rid] = [];
-	reviewer_revs[rid] = review;
     #end
 #end
-print '    postive: %d     negative: %d' %(len(r_pos),len(r_neg));
-print '    number of businesses %d...' %(len(business_revs));
+print '        postive: %d     negative: %d' %(len(r_pos),len(r_neg));
+print '        number of businesses %d...' %(len(business_revs));
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nDetermining probability...';
@@ -99,19 +90,27 @@ print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
-print '\nWriting .scores files...';
-for rid in testRev_idx :
-    outfile = rid.join('.scores');
+print '\nWriting .scores files...'; # For each test reviewer
+for uid in testRev_idx :
+    filename = rid.join('.scores');
+    outfile = 'scores/'.join(filename); # put in a 'scores' directory??
     fid = open(outfile,'w');
-    lst_ids = [];
-    lst_scores = [];
-    lst_labels = [];
-    for item in reviewer_revs[rid] :
-	lst_ids.append(item[0]); 
-	prob = bus_rank[bid]['prob'];
-	lst_scores.append(prob);
-	lst_labels.append(item[1]);
-	fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(lst_ids, lst_scores, lst_labels)])+'\n');
+
+    # For each reviewer, find the buses reviewed
+    # and write the bid, prob/score, and a label to file
+    # such that all buses rev'd by UID are in single file
+    for rid in reviews_idx[uid] :
+	reviewInfo = data['Review Information'][rid];
+        stars = float(reviewInfo['stars']);
+	bid = reviewInfo['business_id'];
+	score = bus_rank[bid]['prob'];
+
+        if stars in pos_list :
+	    label = '1';
+        elif stars in neg_list :
+	    label = '-1';
+	#end
+	fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid, score, label)])+'\n');
     #end
     fid.close();
 #end
