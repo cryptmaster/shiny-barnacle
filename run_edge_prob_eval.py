@@ -30,11 +30,17 @@ reviewer_idx = {};
 for n in range(len(data['Train Reviewer List'])) : 
     reviewer_idx[data['Train Reviewer List'][n]] = n; 
 #end
+testRev_idx = {};
+for n in range(len(data['Test Reviewer List'])) :
+    testRev_idx[data['Test Reviewer List'][n]] = n;
+#end
 business_idx = {};
 for n in range(len(data['Reviewed Business List'])) : 
     business_idx[data['Reviewed Business List'][n]] = n; 
 #end
 print 'sizeof business_idx = %d' %(len(business_idx));
+print 'sizeof reviewer_idx = %d' %(len(reviewer_idx));
+print 'sizeof testRev_idx = %d' %(len(testRev_idx));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
@@ -70,7 +76,7 @@ for uid in data['Train Reviewer List'] :
             r_neg.append(rid);
 	    review.append(-1);
 
-	if rid in reviewer_idx :
+	if rid in testRev_idx:
 	    if rid not in reviewer_revs :
 	        reviewer_revs[rid] = [];
 	    reviewer_revs[rid] = review;
@@ -96,7 +102,7 @@ sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['tota
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
-print '\nWriting to .scores files...';
+print '\nWriting %d .scores files...'%(len(reviewer_revs));
 for rid in reviewer_revs :
     outfile = rid.join('.scores');
     fid = open(outfile,'w');
@@ -107,7 +113,7 @@ for rid in reviewer_revs :
 	lst_ids.append(item[0]); 
 	prob = bus_rank[bid]['prob'];
 	lst_scores.append(prob);
-	lst_labels.append(item[1]);
+	lst_labels.append(rid[1]);
 	fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(lst_ids, lst_scores, lst_labels)])+'\n');
     #end
     fid.close();
