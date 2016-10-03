@@ -70,9 +70,10 @@ for uid in data['Train Reviewer List'] :
             r_neg.append(rid);
 	    review.append(-1);
 
-        if rid not in reviewer_revs :
-	    reviewer_revs[rid] = [];
-	reviewer_revs[rid] = review;
+	if rid in reviewer_idx :
+	    if rid not in reviewer_revs :
+	        reviewer_revs[rid] = [];
+	    reviewer_revs[rid] = review;
     #end
 #end
 print '    postive: %d     negative: %d' %(len(r_pos),len(r_neg));
@@ -104,7 +105,7 @@ for rid in reviewer_revs :
     lst_labels = [];
     for item in rid :
 	lst_ids.append(item[0]); 
-	prob = business_revs[bid]['prob'];
+	prob = bus_rank[bid]['prob'];
 	lst_scores.append(prob);
 	lst_labels.append(item[1]);
 	fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(lst_ids, lst_scores, lst_labels)])+'\n');
