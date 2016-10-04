@@ -5,10 +5,10 @@ import pickle
 import time
 import sklearn.metrics as metrics
 import util_functions as util
-
-import sys, os
+import sys, os, os.path
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 import plot_tools as plt
+
 
 pos_list = [int(float(x)) for x in sys.argv[1].split(',') if len(x)>0] #5 or 4,5
 neg_list = [int(float(x)) for x in sys.argv[2].split(',') if len(x)>0] #1 or 1,2
@@ -91,14 +91,20 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nWriting .scores files...'; # For each test reviewer
 for uid in testRev_idx :
-    filename = "scores" + rid + ".scores";
-    if not os.path.exists(os.path.dirname(filename)) :
-	try :
- 	    os.makedirs(os.path.dirname(filename))
-	except OSError as exc : #guard against race condition
-	    if exc.errno != errno.EEXIST :
-		raise
-    fid = open(filename ,'w');
+    here = os.path.dirname(os.path.realpath(__file__));
+    subdir = "scores";
+    filename = rid.join(".scores");
+    filepath = os.path.join(here, subdir, filename);
+
+    try : 
+	os.makedirs(os.path.join(here, subdir));
+    except OSError :
+	pass;
+    fid = open(filepath,'w');
+
+    bid = [];
+    score = [];
+    label = [];
 
     # For each reviewer, find the buses reviewed
     # and write the bid, prob/score, and a label to file
@@ -106,15 +112,15 @@ for uid in testRev_idx :
     for rid in data['Reviewer Reviews'][uid] :
 	reviewInfo = data['Review Information'][rid];
         stars = float(reviewInfo['stars']);
-	bid = reviewInfo['business_id'];
-	score = bus_rank[bid]['prob'];
+	bid.append(reviewInfo['business_id']);
+	score.append(bus_rank[bid]['prob']);
 
         if stars in pos_list :
-	    label = '1';
+	    label.append('1');
         elif stars in neg_list :
-	    label = '-1';
+	    label.append('-1');
 	#end
-	fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid, score, label)])+'\n');
+    fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid, score, label)])+'\n');
     #end
     fid.close();
 #end
