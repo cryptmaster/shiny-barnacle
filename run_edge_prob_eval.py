@@ -118,9 +118,9 @@ for uid in testRev_idx :
 	score_lst.append(bus_rank[bid]['prob']);
 
         if stars in pos_list :
-	    label_lst.append('1');
+	    label_lst.append(1);
         elif stars in neg_list :
-	    label_lst.append('-1');
+	    label_lst.append(-1);
 	#end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     #end
