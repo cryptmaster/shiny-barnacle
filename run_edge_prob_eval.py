@@ -89,19 +89,18 @@ print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
+here = os.path.dirname(os.path.realpath(__file__));
+subdir = "scores/";
+try : 
+    os.makedirs(os.path.join(here, subdir));
+except OSError :
+    pass;
+
 print '\nWriting .scores files...'; # For each test reviewer
 for uid in testRev_idx :
-    here = os.path.dirname(os.path.realpath(__file__));
-    subdir = "scores";
-    filename = rid.join(".scores");
+    filename = uid.join(".scores");
     filepath = os.path.join(here, subdir, filename);
-
-    try : 
-	os.makedirs(os.path.join(here, subdir));
-    except OSError :
-	pass;
     fid = open(filepath,'w');
-
     bid_lst = [];
     score_lst = [];
     label_lst = [];
@@ -114,16 +113,20 @@ for uid in testRev_idx :
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
 	bid_lst.append(bid);
-	test = bus_rank[bid]['prob'];
-	score_lst.append(bus_rank[bid]['prob']);
+	if bid not in bus_rank :
+	    print "BID %s has no rank"%(bid);
+	    score_lst.append(0.0);
+	else :
+	    print 'bid: %s score: %.6f'%(bid,bus_rank[bid]['prob']);
+	    score_lst.append(bus_rank[bid]['prob']);
 
         if stars in pos_list :
 	    label_lst.append(1);
         elif stars in neg_list :
 	    label_lst.append(-1);
 	#end
-    fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     #end
+    fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
