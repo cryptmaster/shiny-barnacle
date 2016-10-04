@@ -98,12 +98,14 @@ except OSError :
 
 print '\nWriting .scores files...'; # For each test reviewer
 for uid in testRev_idx :
-    filename = uid.join(".scores");
+    filename = uid + '.scores';
     filepath = os.path.join(here, subdir, filename);
     fid = open(filepath,'w');
     bid_lst = [];
     score_lst = [];
     label_lst = [];
+
+    print 'UID %s rated...'%(uid);
 
     # For each reviewer, find the buses reviewed
     # and write the bid, prob/score, and a label to file
@@ -114,10 +116,10 @@ for uid in testRev_idx :
 	bid = reviewInfo['business_id'];
 	bid_lst.append(bid);
 	if bid not in bus_rank :
-	    print "BID %s has no rank"%(bid);
+	    print "    BID %s has no rank"%(bid);
 	    score_lst.append(0.0);
 	else :
-	    print 'bid: %s score: %.6f'%(bid,bus_rank[bid]['prob']);
+	    print '    bid: %s score: %.6f'%(bid,bus_rank[bid]['prob']);
 	    score_lst.append(bus_rank[bid]['prob']);
 
         if stars in pos_list :
