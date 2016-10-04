@@ -35,11 +35,11 @@ testRev_idx = {};
 for n in range(len(data['Test Reviewer List'])) :
     testRev_idx[data['Test Reviewer List'][n]] = n;
 #end
-reviews_idx = {};
-for n in range(len(data['Reviewer Reviews'])) : 
-    reviews_idx[data['Reviewer Reviews'][n]] = n; 
+#reviewer_reviews = {};
+#for n in range(len(data['Reviewer Reviews'])) : 
+#    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
 #end
-print 'sizeof business_idx = %d' %(len(business_idx));
+print 'sizeof reviewer_reviews = %d' %(len(reviewer_reviews));
 print 'sizeof reviewer_idx = %d' %(len(reviewer_idx));
 print 'sizeof testRev_idx = %d' %(len(testRev_idx));
 print '   %.2f seconds elapsed'%(time.clock()-start);
@@ -49,11 +49,10 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 print '\nBuilding Business x Reviewer index...'
 business_revs = {}; 
 pos_bus_revs = {};
-reviewer_revs = {};
 r_pos = [];
 r_neg = [];
 for uid in reviewer_idx :
-    for rid in reviews_idx[uid] :
+    for rid in data['Reviewer Reviews'][uid] :
 	reviewInfo = data['Review Information'][rid];
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
@@ -92,14 +91,19 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nWriting .scores files...'; # For each test reviewer
 for uid in testRev_idx :
-    filename = rid.join('.scores');
-    outfile = 'scores/'.join(filename); # put in a 'scores' directory??
-    fid = open(outfile,'w');
+    filename = "scores" + rid + ".scores";
+    if not os.path.exists(os.path.dirname(filename)) :
+	try :
+ 	    os.makedirs(os.path.dirname(filename))
+	except OSError as exc : #guard against race condition
+	    if exc.errno != errno.EEXIST :
+		raise
+    fid = open(filename ,'w');
 
     # For each reviewer, find the buses reviewed
     # and write the bid, prob/score, and a label to file
     # such that all buses rev'd by UID are in single file
-    for rid in reviews_idx[uid] :
+    for rid in data['Reviewer Reviews'][uid] :
 	reviewInfo = data['Review Information'][rid];
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
