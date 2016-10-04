@@ -12,7 +12,7 @@ import plot_tools as plt
 
 pos_list = [int(float(x)) for x in sys.argv[1].split(',') if len(x)>0] #5 or 4,5
 neg_list = [int(float(x)) for x in sys.argv[2].split(',') if len(x)>0] #1 or 1,2
-test_cond = sys.argv[3]; #diff between test sets
+test_cond = sys.argv[3]; #diff between test sets 1_5
 
 start = time.clock();
 print 'Clock restart at %.2f seconds elapsed'%(time.clock()-start);
@@ -45,7 +45,7 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 # each list contains the BID from reviews for indexing
 print '\nBuilding Business x Reviewer index...'
 business_revs = {}; 
-pos_bus_revs = {};
+star_sum = {};
 r_pos = [];
 r_neg = [];
 for uid in reviewer_idx :
@@ -57,16 +57,15 @@ for uid in reviewer_idx :
 
 	if bid not in business_revs :
    	    business_revs[bid] = {};
-	    pos_bus_revs[bid] = [];
+	    star_sum[bid] = {};
+	    star_sum[bid]['stars'] = 0.0;
+	    star_sum[bid]['total'] = 0.0;
 	if reviewID not in business_revs[bid] : 
 	    business_revs[bid][reviewID] = [];
-        business_revs[bid][reviewID].append(rid);
+        business_revs[bid][reviewID].append(rid);		
 
-        if stars in pos_list :
-            r_pos.append(rid);
-	    pos_bus_revs[bid].append(reviewID);
-        elif stars in neg_list :
-            r_neg.append(rid);
+	star_sum[bid]['stars'] += stars;
+	star_sum[bid]['total'] += 5;
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
@@ -74,9 +73,10 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 print '\nDetermining probability...';
 bus_rank = {};
 for bid in business_revs :
-    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
-    rank = {'prob':probability, 'positive':len(pos_bus_revs[bid]), 'total':len(business_revs[bid])};
+    probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
+    rank = {'prob':probability, 'total':len(business_revs[bid])};
     bus_rank[bid] = rank; 
+    print "BID: %s PROB: %.6f   SUM: %.2f TOT:%.2f"%(bid, probability, star_sum[bid]['stars'], star_sum[bid]['total']);
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
@@ -85,7 +85,7 @@ sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['tota
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 here = os.path.dirname(os.path.realpath(__file__));
-subdir = "PosScores/";
+subdir = "AvgScores/";
 try : 
     os.makedirs(os.path.join(here, subdir));
 except OSError :
