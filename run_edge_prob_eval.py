@@ -39,9 +39,6 @@ for n in range(len(data['Test Reviewer List'])) :
 #for n in range(len(data['Reviewer Reviews'])) : 
 #    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
 #end
-print 'sizeof reviewer_reviews = %d' %(len(reviewer_reviews));
-print 'sizeof reviewer_idx = %d' %(len(reviewer_idx));
-print 'sizeof testRev_idx = %d' %(len(testRev_idx));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
@@ -72,8 +69,6 @@ for uid in reviewer_idx :
             r_neg.append(rid);
     #end
 #end
-print '        postive: %d     negative: %d' %(len(r_pos),len(r_neg));
-print '        number of businesses %d...' %(len(business_revs));
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nDetermining probability...';
@@ -116,10 +111,8 @@ for uid in testRev_idx :
 	bid = reviewInfo['business_id'];
 	bid_lst.append(bid);
 	if bid not in bus_rank :
-	    print "    BID %s has no rank"%(bid);
 	    score_lst.append(0.0);
 	else :
-	    print '    bid: %s score: %.6f'%(bid,bus_rank[bid]['prob']);
 	    score_lst.append(bus_rank[bid]['prob']);
 
         if stars in pos_list :
