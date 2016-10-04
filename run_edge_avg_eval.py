@@ -76,7 +76,6 @@ for bid in business_revs :
     probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
     rank = {'prob':probability, 'total':len(business_revs[bid])};
     bus_rank[bid] = rank; 
-    print "BID: %s PROB: %.6f   SUM: %.2f TOT:%.2f"%(bid, probability, star_sum[bid]['stars'], star_sum[bid]['total']);
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
