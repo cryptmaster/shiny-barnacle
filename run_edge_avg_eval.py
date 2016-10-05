@@ -28,18 +28,11 @@ execfile('load_edge_attr_data.py');
 # lookup pair of reviewer/businesses linked to integer for indexing
 print 'Building index lookups...'
 reviewer_idx = {};
-for n in range(len(data['Train Reviewer List'])) : 
-    reviewer_idx[data['Train Reviewer List'][n]] = n; 
-#end
-testRev_idx = {};
-for n in range(len(data['Test Reviewer List'])) :
-    testRev_idx[data['Test Reviewer List'][n]] = n;
-#end
-#reviewer_reviews = {};
-#for n in range(len(data['Reviewer Reviews'])) : 
-#    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
-#end
+for n in range(len(data['Train Reviewer List'])) : reviewer_idx[data['Train Reviewer List'][n]] = n; #end
+business_idx = {};
+for n in range(len(data['Reviewed Business List'])) : business_idx[data['Reviewed Business List'][n]] = n; #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
+
 
 # Create list of positive and negative reviews
 # each list contains the BID from reviews for indexing
@@ -65,7 +58,7 @@ for uid in reviewer_idx :
         business_revs[bid][reviewID].append(rid);		
 
 	star_sum[bid]['stars'] += stars;
-	star_sum[bid]['total'] += 5;
+	star_sum[bid]['total'] += 1;
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
@@ -73,8 +66,10 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 print '\nDetermining probability...';
 bus_rank = {};
 for bid in business_revs :
-    probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
+    probability = star_sum[bid]['stars'] / len(business_revs[bid]);
+#    probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
     rank = {'prob':probability, 'total':len(business_revs[bid])};
+    print rank;
     bus_rank[bid] = rank; 
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
@@ -83,9 +78,8 @@ print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
-
-rint 'Running evaluation...';
-score_dir = 'scores/probability_%s'%(test_cond);
+print 'Running evaluation...';
+score_dir = 'scores/mean_%s'%(test_cond);
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
