@@ -9,14 +9,11 @@ import sys, os, os.path
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 import plot_tools as plt
 
-
 pos_list = [int(float(x)) for x in sys.argv[1].split(',') if len(x)>0] #5 or 4,5
 neg_list = [int(float(x)) for x in sys.argv[2].split(',') if len(x)>0] #1 or 1,2
 test_cond = sys.argv[3]; #diff between test sets.... 1_5
 
 start = time.clock();
-print 'Clock restart at %.2f seconds elapsed'%(time.clock()-start);
-
 execfile('load_edge_attr_data.py');
 #to_save['Train Reviewer List'] = train_reviewer_lst;
 #to_save['Test Reviewer List'] = test_reviewer_lst;
@@ -34,12 +31,9 @@ for n in range(len(data['Reviewed Business List'])) : business_idx[data['Reviewe
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
-# each list contains the BID from reviews for indexing
-print '\nCompiling review ratings';
+print '\nCompiling Review Maps... ';
 business_revs = {}; 
 star_info = {};
-r_pos = [];
-r_neg = [];
 for uid in reviewer_idx :
     for rid in data['Reviewer Reviews'][uid] :
 	reviewInfo = data['Review Information'][rid];
@@ -60,12 +54,6 @@ for uid in reviewer_idx :
 	    business_revs[bid][reviewID] = [];
         business_revs[bid][reviewID].append(rid);
 
-	# Maintain list of positive and negative reviews
-        if stars in pos_list :
-            r_pos.append(rid);
-        elif stars in neg_list :
-            r_neg.append(rid);
-
 	# Maintain a count of each rating for each business
 	if stars == 1.0 :
 	    star_info[bid]['1star'].append(uid);
@@ -83,28 +71,33 @@ for uid in reviewer_idx :
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-
+# Determine and map instances demonstrating 
+#  all users who rated business L as R_l
+#  and gave business T a positive rating
 print '\nCross matching ratings across businesses';
+print '    This will take a while... you\'re mapping %d businesses...'%(len(star_info));
+# I know this currently isn't efficient... but its straight forward
+# MODIFY THIS NONSENSE... FOR THE CLOCKS!! 
 rating_map = {};
 probRtRl = {};
 for bid in star_info :
-    print bid;
     for starRating in star_info[bid] :
 	for uid in star_info[bid][starRating] :
             for rid in data['Reviewer Reviews'][uid] :
                 reviewInfo = data['Review Information'][rid];
                 secondStar = float(reviewInfo['stars']);
                 secondBid = reviewInfo['business_id'];
+		
+		# We don't want to be mapping a business used as reference
 		if secondBid != bid :
-
 		    if secondBid not in rating_map :
 		        rating_map[secondBid] = {};
+
+		    # Track the positive T ratings
 		    if secondStar in pos_list :
-		        # We want to keep track of this
 			if starRating not in rating_map[secondBid] :
 			    rating_map[secondBid][starRating] = [];
 			rating_map[secondBid][starRating].append(bid);
-#	        print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
 		# end if
 	    # end for rid
 	# end for uid
@@ -112,15 +105,36 @@ for bid in star_info :
 # end for bid
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-print '\nDetermining probability...';
-bus_rank = {};
-for bid in business_revs :
-    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
-    rank = {'prob':probability, 'positive':len(pos_bus_revs[bid]), 'total':len(business_revs[bid])};
-    bus_rank[bid] = rank; 
+#print '\nDetermining classical probability...';
+#bus_rank = {};
+#for bid in business_revs :
+#    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
+#    rank = {'prob':probability, 'positive':len(pos_bus_revs[bid]), 'total':len(business_revs[bid])};
+#    bus_rank[bid] = rank; 
 #end
-print '   %.2f seconds elapsed'%(time.clock()-start);
+#print '   %.2f seconds elapsed'%(time.clock()-start);
+       
+cross_probability = {}; 
+print '\nDetermining Advanced Probability...';
+print '    This will take a while... you\'re trying to map %d by %d across 5 stars...'%(len(star_info), len(rating_map));
+for Tbid in star_info :
+    cross_probability[Tbid] = {};
+    for Lbid in rating_map :
+	cross_probability[Tbid][Lbid] = {};
+        for Tstar in star_info[Tbid] :
+            Treviews = len(star_info[Tbid][Tstar]);
 
+            if Tstar in rating_map[Lbid] :
+                Lreviews = len(rating_map[Lbid][Tstar]);
+                probability = float(Lreviews) / Treviews;
+		cross_probability[Tbid][Lbid][Tstar] = probability;
+	# end for Lbid
+        print cross_probability[Tbid][Lbid];
+    # end for Tstar
+# end for Tbid
+print '    %.2f seconds elapsed'%(time.clock()-start);
+
+# Is this even relevant anymore?
 print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
