@@ -12,7 +12,7 @@ import plot_tools as plt
 
 pos_list = [int(float(x)) for x in sys.argv[1].split(',') if len(x)>0] #5 or 4,5
 neg_list = [int(float(x)) for x in sys.argv[2].split(',') if len(x)>0] #1 or 1,2
-test_cond = sys.argv[3]; #diff between test sets
+test_cond = sys.argv[3]; #diff between test sets.... 1_5
 
 start = time.clock();
 print 'Clock restart at %.2f seconds elapsed'%(time.clock()-start);
@@ -90,12 +90,11 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nCross matching ratings across businesses';
 rating_map = {};
+probRtRl = {};
 for bid in star_info :
     print bid;
     for starRating in star_info[bid] :
-	sys.stdout.write('.');
 	for uid in star_info[bid][starRating] :
-	    sys.stdout.write('.');
             for rid in data['Reviewer Reviews'][uid] :
                 reviewInfo = data['Review Information'][rid];
                 secondStar = float(reviewInfo['stars']);
@@ -112,18 +111,10 @@ for bid in star_info :
 #	        print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
 		# end if
 	    # end for rid
-	    sys.stdout.write(' ');
 	# end for uid
     # end for star
-    sys.stdout.write('\n');
 # end for bid
 print '    %.2f seconds elapsed'%(time.clock()-start);
-
-#for secondBid in rating_map :
-#    for starRating in rating_map[secondBid] :
-#	for bid in rating_map[secondBid][starRating] :    
-#	    print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
-
 
 print '\nDetermining probability...';
 bus_rank = {};
