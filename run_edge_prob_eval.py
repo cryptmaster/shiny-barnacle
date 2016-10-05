@@ -35,17 +35,13 @@ testRev_idx = {};
 for n in range(len(data['Test Reviewer List'])) :
     testRev_idx[data['Test Reviewer List'][n]] = n;
 #end
-#reviewer_reviews = {};
-#for n in range(len(data['Reviewer Reviews'])) : 
-#    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
-#end
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
 # each list contains the BID from reviews for indexing
-print '\nBuilding Business x Reviewer index...'
+print '\nCompiling review ratings';
 business_revs = {}; 
-pos_bus_revs = {};
+star_info = {};
 r_pos = [];
 r_neg = [];
 for uid in reviewer_idx :
@@ -55,20 +51,65 @@ for uid in reviewer_idx :
 	bid = reviewInfo['business_id'];
         reviewID = reviewInfo['review_id'];
 
+	# Initailize lists and tuples where necesary
 	if bid not in business_revs :
    	    business_revs[bid] = {};
-	    pos_bus_revs[bid] = [];
+	    star_info[bid] = {};
+	    star_info[bid]['1star'] = [];
+	    star_info[bid]['2star'] = [];
+	    star_info[bid]['3star'] = [];
+	    star_info[bid]['4star'] = [];
+	    star_info[bid]['5star'] = [];
 	if reviewID not in business_revs[bid] : 
 	    business_revs[bid][reviewID] = [];
         business_revs[bid][reviewID].append(rid);
 
+	# Maintain list of positive and negative reviews
         if stars in pos_list :
             r_pos.append(rid);
-	    pos_bus_revs[bid].append(reviewID);
         elif stars in neg_list :
             r_neg.append(rid);
+
+	# Maintain a count of each rating for each business
+	if stars == 1.0 :
+	    star_info[bid]['1star'].append(uid);
+	elif stars == 2.0 :
+	    star_info[bid]['2star'].append(uid);
+	elif stars == 3.0 :
+	    star_info[bid]['3star'].append(uid);
+	elif stars == 4.0 :
+	    star_info[bid]['4star'].append(uid);
+	elif stars == 5.0 :
+	    star_info[bid]['5star'].append(uid);
+	else :
+	    print "This isn't doing what you think its doing.... ";
     #end
 #end
+print '    %.2f seconds elapsed'%(time.clock()-start);
+
+
+print '\nCross matching ratings across businesses';
+rating_map = {};
+for bid in star_info :
+    for starRating in star_info[bid] :
+	for uid in star_info[bid][starRating] :
+            for rid in data['Reviewer Reviews'][uid] :
+                reviewInfo = data['Review Information'][rid];
+                secondStar = float(reviewInfo['stars']);
+                secondBid = reviewInfo['business_id'];
+		if secondBid != bid :
+
+		    rating_map[secondBid] = {};
+		    if secondStar in pos_list :
+		        # We want to keep track of this
+			rating_map[secondBid][starRating] = [];
+			rating_map[secondBid][starRating].append(bid);
+			print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
+		# end if
+	    # end for rid
+	# end for uid
+    # end for star
+# end for bid
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nDetermining probability...';
