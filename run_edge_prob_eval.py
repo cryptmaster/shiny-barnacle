@@ -91,26 +91,39 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 print '\nCross matching ratings across businesses';
 rating_map = {};
 for bid in star_info :
+    print bid;
     for starRating in star_info[bid] :
+	sys.stdout.write('.');
 	for uid in star_info[bid][starRating] :
+	    sys.stdout.write('.');
             for rid in data['Reviewer Reviews'][uid] :
                 reviewInfo = data['Review Information'][rid];
                 secondStar = float(reviewInfo['stars']);
                 secondBid = reviewInfo['business_id'];
 		if secondBid != bid :
 
-		    rating_map[secondBid] = {};
+		    if secondBid not in rating_map :
+		        rating_map[secondBid] = {};
 		    if secondStar in pos_list :
 		        # We want to keep track of this
-			rating_map[secondBid][starRating] = [];
+			if starRating not in rating_map[secondBid] :
+			    rating_map[secondBid][starRating] = [];
 			rating_map[secondBid][starRating].append(bid);
-			print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
+#	        print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
 		# end if
 	    # end for rid
+	    sys.stdout.write(' ');
 	# end for uid
     # end for star
+    sys.stdout.write('\n');
 # end for bid
 print '    %.2f seconds elapsed'%(time.clock()-start);
+
+#for secondBid in rating_map :
+#    for starRating in rating_map[secondBid] :
+#	for bid in rating_map[secondBid][starRating] :    
+#	    print "        secondBid: %s  star: %s  bid: %s"%(secondBid, starRating, bid);
+
 
 print '\nDetermining probability...';
 bus_rank = {};
