@@ -15,7 +15,6 @@ neg_list = [int(float(x)) for x in sys.argv[2].split(',') if len(x)>0] #1 or 1,2
 test_cond = sys.argv[3]; #diff between test sets
 
 start = time.clock();
-print 'Clock restart at %.2f seconds elapsed'%(time.clock()-start);
 
 execfile('load_edge_attr_data.py');
 #to_save['Train Reviewer List'] = train_reviewer_lst;
@@ -28,17 +27,9 @@ execfile('load_edge_attr_data.py');
 # lookup pair of reviewer/businesses linked to integer for indexing
 print 'Building index lookups...'
 reviewer_idx = {};
-for n in range(len(data['Train Reviewer List'])) : 
-    reviewer_idx[data['Train Reviewer List'][n]] = n; 
-#end
-testRev_idx = {};
-for n in range(len(data['Test Reviewer List'])) :
-    testRev_idx[data['Test Reviewer List'][n]] = n;
-#end
-#reviewer_reviews = {};
-#for n in range(len(data['Reviewer Reviews'])) : 
-#    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
-#end
+for n in range(len(data['Train Reviewer List'])) : reviewer_idx[data['Train Reviewer List'][n]] = n; #end
+business_idx = {};
+for n in range(len(data['Reviewed Business List'])) : business_idx[data['Reviewed Business List'][n]] = n; #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
@@ -84,18 +75,16 @@ print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
-here = os.path.dirname(os.path.realpath(__file__));
-subdir = "PosScores/";
-try : 
-    os.makedirs(os.path.join(here, subdir));
-except OSError :
-    pass;
 
-print '\nWriting .scores files...'; # For each test reviewer
-for uid in testRev_idx :
-    filename = uid + '.scores';
-    filepath = os.path.join(here, subdir, filename);
-    fid = open(filepath,'w');
+print 'Running evaluation...';
+score_dir = 'scores/probability_%s'%(test_cond);
+os.system('mkdir -p %s'%(score_dir));
+os.system('rm %s/*'%(score_dir));
+here = os.path.dirname(os.path.realpath(__file__));
+for reviewer in test_reviewer_lst :
+    [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+    outfile = '%s/%s.scores'%(score_dir,reviewer);
+    fid = open(outfile,'w');
     bid_lst = [];
     score_lst = [];
     label_lst = [];
@@ -103,21 +92,14 @@ for uid in testRev_idx :
     # For each reviewer, find the buses reviewed
     # and write the bid, prob/score, and a label to file
     # such that all buses rev'd by UID are in single file
-    for rid in data['Reviewer Reviews'][uid] :
-	reviewInfo = data['Review Information'][rid];
-        stars = float(reviewInfo['stars']);
-	bid = reviewInfo['business_id'];
+    for value in test_lst :
+        bid = value[0];
 	bid_lst.append(bid);
+        label_lst.append(value[2]);
 	if bid not in bus_rank :
 	    score_lst.append(0.0);
 	else :
 	    score_lst.append(bus_rank[bid]['prob']);
-
-        if stars in pos_list :
-	    label_lst.append(1);
-        elif stars in neg_list :
-	    label_lst.append(-1);
-	#end
     #end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
