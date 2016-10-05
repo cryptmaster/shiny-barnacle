@@ -28,18 +28,11 @@ execfile('load_edge_attr_data.py');
 # lookup pair of reviewer/businesses linked to integer for indexing
 print 'Building index lookups...'
 reviewer_idx = {};
-for n in range(len(data['Train Reviewer List'])) : 
-    reviewer_idx[data['Train Reviewer List'][n]] = n; 
-#end
-testRev_idx = {};
-for n in range(len(data['Test Reviewer List'])) :
-    testRev_idx[data['Test Reviewer List'][n]] = n;
-#end
-#reviewer_reviews = {};
-#for n in range(len(data['Reviewer Reviews'])) : 
-#    reviewer_reviews[data['Reviewer Reviews'][n]] = n; 
-#end
+for n in range(len(data['Train Reviewer List'])) : reviewer_idx[data['Train Reviewer List'][n]] = n; #end
+business_idx = {};
+for n in range(len(data['Reviewed Business List'])) : business_idx[data['Reviewed Business List'][n]] = n; #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
+
 
 # Create list of positive and negative reviews
 # each list contains the BID from reviews for indexing
@@ -65,7 +58,7 @@ for uid in reviewer_idx :
         business_revs[bid][reviewID].append(rid);		
 
 	star_sum[bid]['stars'] += stars;
-	star_sum[bid]['total'] += 5;
+	star_sum[bid]['total'] += 1;
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
@@ -73,8 +66,10 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 print '\nDetermining probability...';
 bus_rank = {};
 for bid in business_revs :
-    probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
+    probability = star_sum[bid]['stars'] / len(business_revs[bid]);
+#    probability = star_sum[bid]['stars'] / float(star_sum[bid]['total']);
     rank = {'prob':probability, 'total':len(business_revs[bid])};
+    print rank;
     bus_rank[bid] = rank; 
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
@@ -83,18 +78,15 @@ print '\nSorting the Reviews...';
 sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
+print 'Running evaluation...';
+score_dir = 'scores/mean_%s'%(test_cond);
+os.system('mkdir -p %s'%(score_dir));
+os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
-subdir = "AvgScores/";
-try : 
-    os.makedirs(os.path.join(here, subdir));
-except OSError :
-    pass;
-
-print '\nWriting .scores files...'; # For each test reviewer
-for uid in testRev_idx :
-    filename = uid + '.scores';
-    filepath = os.path.join(here, subdir, filename);
-    fid = open(filepath,'w');
+for reviewer in test_reviewer_lst :
+    [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+    outfile = '%s/%s.scores'%(score_dir,reviewer);
+    fid = open(outfile,'w');
     bid_lst = [];
     score_lst = [];
     label_lst = [];
@@ -102,21 +94,14 @@ for uid in testRev_idx :
     # For each reviewer, find the buses reviewed
     # and write the bid, prob/score, and a label to file
     # such that all buses rev'd by UID are in single file
-    for rid in data['Reviewer Reviews'][uid] :
-	reviewInfo = data['Review Information'][rid];
-        stars = float(reviewInfo['stars']);
-	bid = reviewInfo['business_id'];
-	bid_lst.append(bid);
-	if bid not in bus_rank :
-	    score_lst.append(0.0);
-	else :
-	    score_lst.append(bus_rank[bid]['prob']);
-
-        if stars in pos_list :
-	    label_lst.append(1);
-        elif stars in neg_list :
-	    label_lst.append(-1);
-	#end
+    for value in test_lst :
+        bid = value[0];
+        bid_lst.append(bid);
+        label_lst.append(value[2]);
+        if bid not in bus_rank :
+            score_lst.append(0.0);
+        else :
+            score_lst.append(bus_rank[bid]['prob']);
     #end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
