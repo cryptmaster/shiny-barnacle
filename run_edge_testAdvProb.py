@@ -1,3 +1,5 @@
+# This is a copy of original run_edge_advProb_eval.py 
+#  used to test modifications for speed
 import json
 import scipy.sparse as sp
 import numpy as np
@@ -32,7 +34,8 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
 print '\nCompiling Review Maps... ';
-business_revs = {}; 
+bus_rank = {};
+businessRevs = {};
 pos_bus_revs = {};
 rating_map = {};
 star_info = {};
@@ -41,22 +44,27 @@ for user in reviewer_idx :
 	reviewInfo = data['Review Information'][review];
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
+	positiveRevs = 0;
+	totalRevs = 0;
 
 	# Initailize lists and tuples where necesary
 	if stars not in star_info : 
 	    star_info[stars] = {};
 	if bid not in star_info :
 	    star_info[stars][bid] = []; 
-	if bid not in business_revs :
-   	    business_revs[bid] = [];
-            pos_bus_revs[bid] = [];	
+	if bid not in businessRevs:
+   	    businessRevs[bid] = {};
+	    if 'total' not in businessRevs[bid] :
+   	        businessRevs[bid]['total'] = 0;
+	    if 'positive' not in businessRevs[bid] :
+	        businessRevs[bid]['positive'] = 0;
 
 	# This sequence ensures only mapping of T 
 	#  businesses that're of positive review
 	#  since we only are interested in # of positive 
 	#  reviews to T from people who gave rL to L
 	if stars in pos_list :
-	    pos_bus_revs[bid].append(1);
+	    businessRevs[bid]['positive'] += 1;
 	    if bid not in rating_map :
 	        rating_map[bid] = {};    
 	    if stars not in rating_map[bid] :
@@ -64,20 +72,14 @@ for user in reviewer_idx :
 
 	# Track reviewID with each business
 	# Track information on ratings to each business
-        business_revs[bid].append(review);
+        businessRevs[bid]['total'] += 1;
         star_info[stars][bid].append(user);	
+        probability = businessRevs[bid]['positive'] / float(businessRevs[bid]['total']);
+        bus_rank[bid] = probability; 
+        print '%s   %.4f'%(bid, probability);
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
-
-print '\nDetermining classical probability...';
-bus_rank = {};
-for bid in business_revs :
-    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
-    rank = {'prob':probability, 'pos':len(pos_bus_revs[bid]), 'tot':len(business_revs[bid])};
-    bus_rank[bid] = rank; 
-#end
-print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Determine and map all users who rated business L as rL
 #  and gave business T a positive rating
@@ -129,10 +131,6 @@ for Tbid in crossTrL :
 # end for Tbid
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-# Is this even relevant anymore?
-print '\nSorting the Reviews...';
-sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
-print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print 'Running evaluation...';
 score_dir = 'scores/probability_%s'%(test_cond);
@@ -157,7 +155,7 @@ for reviewer in test_reviewer_lst :
         if bid not in bus_rank :
             score_lst.append(0.0);
         else :
-            score_lst.append(bus_rank[bid]['prob']);
+            score_lst.append(bus_rank[bid]);
     #end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
