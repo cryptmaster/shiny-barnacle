@@ -34,9 +34,7 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
 print '\nCompiling Review Maps... ';
-bus_rank = {};
 businessRevs = {};
-pos_bus_revs = {};
 rating_map = {};
 star_info = {};
 for user in reviewer_idx :
@@ -75,8 +73,7 @@ for user in reviewer_idx :
         businessRevs[bid]['total'] += 1;
         star_info[stars][bid].append(user);	
         probability = businessRevs[bid]['positive'] / float(businessRevs[bid]['total']);
-        bus_rank[bid] = probability; 
-        print '%s   %.4f'%(bid, probability);
+        businessRevs[bid]['prob'] = probability; 
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
@@ -152,10 +149,10 @@ for reviewer in test_reviewer_lst :
         bid = value[0];
         bid_lst.append(bid);
         label_lst.append(value[2]);
-        if bid not in bus_rank :
+        if bid not in businessRevs :
             score_lst.append(0.0);
         else :
-            score_lst.append(bus_rank[bid]);
+            score_lst.append(businessRevs[bid]['prob']);
     #end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
