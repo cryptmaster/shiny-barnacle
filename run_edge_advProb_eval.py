@@ -33,6 +33,7 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 # Create list of positive and negative reviews
 print '\nCompiling Review Maps... ';
 business_revs = {}; 
+pos_bus_revs = {};
 rating_map = {};
 star_info = {};
 for user in reviewer_idx :
@@ -48,39 +49,53 @@ for user in reviewer_idx :
 	    star_info[stars][bid] = []; 
 	if bid not in business_revs :
    	    business_revs[bid] = [];
-	    rating_map[bid] = {};
+            pos_bus_revs[bid] = [];	
+
+	# This sequence ensures only mapping of T 
+	#  businesses that're of positive review
+	#  since we only are interested in # of positive 
+	#  reviews to T from people who gave rL to L
 	if stars in pos_list :
+	    pos_bus_revs[bid].append(1);
+	    if bid not in rating_map :
+	        rating_map[bid] = {};    
 	    if stars not in rating_map[bid] :
 	        rating_map[bid][stars] = [];
 
+	# Track reviewID with each business
+	# Track information on ratings to each business
         business_revs[bid].append(review);
         star_info[stars][bid].append(user);	
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-# Determine and map instances demonstrating 
-#  all users who rated business L as R_l
+print '\nDetermining classical probability...';
+bus_rank = {};
+for bid in business_revs :
+    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
+    rank = {'prob':probability, 'pos':len(pos_bus_revs[bid]), 'tot':len(business_revs[bid])};
+    bus_rank[bid] = rank; 
+#end
+print '   %.2f seconds elapsed'%(time.clock()-start);
+
+# Determine and map all users who rated business L as rL
 #  and gave business T a positive rating
 print '\nCross matching ratings across businesses';
-print '    This will take a while... you\'re mapping %d businesses...'%(len(rating_map));
-probRtRl = {};
-for Tbid in rating_map :
+print '    This will take a while... you\'re mapping %d \'positive\' businesses...'%(len(rating_map));
+cross_TrL = {};
+# Might as well only iterate over our known pos revs for T
+for Tbid in rating_map : 
+    cross_TrL[Tbid] = {};
     for starRating in rating_map[Tbid] :
-	print 'Tbid: %s   rate: %.2f'%(Tbid, starRating);
+	# Extract precise star ratings rL for Lbid
         for Lbid in star_info[starRating] :
-	    if Lbid != Tbid :
-		rating_map[Tbid][starRating].append(Lbid);
+	    if Lbid != Tbid : # Don't want to map the same biz 2x
+		if Lbid not in cross_TrL[Tbid] :
+		    cross_TrL[Tbid][Lbid] = {};
+		cross_TrL[Tbid][Lbid][starRating] = [];
+		cross_TrL[Tbid][Lbid][starRating].append(1);
 print '    %.2f seconds elapsed'%(time.clock()-start);
-
-#print '\nDetermining classical probability...';
-#bus_rank = {};
-#for bid in business_revs :
-#    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
-#    rank = {'prob':probability, 'positive':len(pos_bus_revs[bid]), 'total':len(business_revs[bid])};
-#    bus_rank[bid] = rank; 
-#end
-#print '   %.2f seconds elapsed'%(time.clock()-start);
        
 cross_probability = {}; 
 print '\nDetermining Advanced Probability...';
