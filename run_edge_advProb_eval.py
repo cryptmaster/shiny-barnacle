@@ -66,13 +66,11 @@ print '\nCross matching ratings across businesses';
 print '    This will take a while... you\'re mapping %d businesses...'%(len(rating_map));
 probRtRl = {};
 for Tbid in rating_map :
-    print Tbid;
     for starRating in rating_map[Tbid] :
-	sys.stdout.write(str(starRating));
+	print 'Tbid: %s   rate: %.2f'%(Tbid, starRating);
         for Lbid in star_info[starRating] :
 	    if Lbid != Tbid :
 		rating_map[Tbid][starRating].append(Lbid);
-		sys.stdout.write('.');
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 #print '\nDetermining classical probability...';
