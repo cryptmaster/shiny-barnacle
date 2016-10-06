@@ -33,40 +33,28 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 # Create list of positive and negative reviews
 print '\nCompiling Review Maps... ';
 business_revs = {}; 
+rating_map = {};
 star_info = {};
-for uid in reviewer_idx :
-    for rid in data['Reviewer Reviews'][uid] :
-	reviewInfo = data['Review Information'][rid];
+for user in reviewer_idx :
+    for review in data['Reviewer Reviews'][user] :
+	reviewInfo = data['Review Information'][review];
         stars = float(reviewInfo['stars']);
 	bid = reviewInfo['business_id'];
-        reviewID = reviewInfo['review_id'];
 
 	# Initailize lists and tuples where necesary
+	if stars not in star_info : 
+	    star_info[stars] = {};
+	if bid not in star_info :
+	    star_info[stars][bid] = []; 
 	if bid not in business_revs :
-   	    business_revs[bid] = {};
-	    star_info[bid] = {};
-	    star_info[bid]['1star'] = [];
-	    star_info[bid]['2star'] = [];
-	    star_info[bid]['3star'] = [];
-	    star_info[bid]['4star'] = [];
-	    star_info[bid]['5star'] = [];
-	if reviewID not in business_revs[bid] : 
-	    business_revs[bid][reviewID] = [];
-        business_revs[bid][reviewID].append(rid);
+   	    business_revs[bid] = [];
+	    rating_map[bid] = {};
+	if stars in pos_list :
+	    if stars not in rating_map[bid] :
+	        rating_map[bid][stars] = [];
 
-	# Maintain a count of each rating for each business
-	if stars == 1.0 :
-	    star_info[bid]['1star'].append(uid);
-	elif stars == 2.0 :
-	    star_info[bid]['2star'].append(uid);
-	elif stars == 3.0 :
-	    star_info[bid]['3star'].append(uid);
-	elif stars == 4.0 :
-	    star_info[bid]['4star'].append(uid);
-	elif stars == 5.0 :
-	    star_info[bid]['5star'].append(uid);
-	else :
-	    print "This isn't doing what you think its doing.... ";
+        business_revs[bid].append(review);
+        star_info[stars][bid].append(user);	
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
@@ -75,34 +63,16 @@ print '    %.2f seconds elapsed'%(time.clock()-start);
 #  all users who rated business L as R_l
 #  and gave business T a positive rating
 print '\nCross matching ratings across businesses';
-print '    This will take a while... you\'re mapping %d businesses...'%(len(star_info));
-# I know this currently isn't efficient... but its straight forward
-# MODIFY THIS NONSENSE... FOR THE CLOCKS!! 
-rating_map = {};
+print '    This will take a while... you\'re mapping %d businesses...'%(len(rating_map));
 probRtRl = {};
-for bid in star_info :
-    for starRating in star_info[bid] :
-	for uid in star_info[bid][starRating] :
-            for rid in data['Reviewer Reviews'][uid] :
-                reviewInfo = data['Review Information'][rid];
-                secondStar = float(reviewInfo['stars']);
-                secondBid = reviewInfo['business_id'];
-		
-		# We don't want to be mapping a business used as reference
-		if secondBid != bid :
-		    if secondBid not in rating_map :
-		        rating_map[secondBid] = {};
-
-		    # Track the positive T ratings
-		    if secondStar in pos_list :
-			if starRating not in rating_map[secondBid] :
-			    rating_map[secondBid][starRating] = [];
-			rating_map[secondBid][starRating].append(bid);
-		# end if
-	    # end for rid
-	# end for uid
-    # end for star
-# end for bid
+for Tbid in rating_map :
+    print Tbid;
+    for starRating in rating_map[Tbid] :
+	sys.stdout.write(str(starRating));
+        for Lbid in star_info[starRating] :
+	    if Lbid != Tbid :
+		rating_map[Tbid][starRating].append(Lbid);
+		sys.stdout.write('.');
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 #print '\nDetermining classical probability...';
