@@ -65,7 +65,7 @@ for user in reviewer_idx :
         businessRevs[bid]['total'] += 1;
         probability = businessRevs[bid]['positive'] / float(businessRevs[bid]['total']);
         businessRevs[bid]['prob'] = probability; 
-	LbidMap[bid][stars][user] = review;
+	LbidMap[bid][stars][review] = user;
 	TbidMap[bid][user][review] = stars;
     #end
 #end
@@ -80,25 +80,30 @@ for Tbid in TbidMap :
     for Lbid in LbidMap :
 	# Ensure T and L aren't the same business
 	if Tbid != Lbid :
+	    # Get numer of reviews at EACH STAR rate for L
     	    for stars in LbidMap[Lbid] :
 	        starSum = len(LbidMap[Lbid][stars]);
 	        posTbid = 0;
-	        for user in LbidMap[Lbid][stars] :
-	            if user in TbidMap[Tbid] :
-		        rid = LbidMap[Lbid][stars][user];
-		        print 'Tbid:%s  Lbid:%s  user:%s  rid:%s'%(Tbid, Lbid, user, rid);
-		        reviewRate = TbidMap[Tbid][user][rid];
-		        if reviewRate in pos_list :
-			    posTbid += 1;
-		        # end if reviewRate
-	        #end for user
+		# For each review check if user rated the Tbid
+		for Lreview in LbidMap[Lbid][stars] :
+		    user = LbidMap[Lbid][stars][Lreview];
+		    if user in TbidMap[Tbid] :
+			# user rev'd Tbid, get their Trid 
+			#  and see if they gave Tbid a pos rev
+			for Trid in TbidMap[Tbid][user] :
+			    # Currently this does not account for multiple reviews
+			    #  given by the same person. Just want to get this 
+			    #  working and then I'll minimize this
+			    Tstar = TbidMap[Tbid][user][Trid];
+			    if Tstar in pos_list :
+				posTbid += 1;
 	        numerator = posTbid + 1;
 	        denominator = starSum + 1;
 	        probability = float(numerator) / denominator;
 	        evaluation = {'Tbid':Tbid, 'Lbid':Lbid, 'star':stars, 'prob':probability}
 	        cross_TrL.append(evaluation);
-	       # sys.stdout.write(str('%.2f'%(time.clock()-start)));
-	       # print evaluation;
+	        sys.stdout.write(str('%.2f'%(time.clock()-start)));
+	        print evaluation;
 	    # end for stars
     # end for Lbid
 # end for Tbid
@@ -118,6 +123,8 @@ for Tbid in posTbid :
     	    cross_probability[Tbid][Lbid][starRating] = probability;
 	    print "Tbid: %s   Lbid: %s   Star: %.2f   Prob: %.2f"%(Tbid, Lbid, starRating, probability);
 print '    %.2f seconds elapsed'%(time.clock()-start);
+
+
 
 
 print 'Running evaluation...';
