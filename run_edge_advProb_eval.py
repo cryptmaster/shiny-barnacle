@@ -1,5 +1,3 @@
-# This is a copy of original run_edge_advProb_eval.py 
-#  used to test modifications for speed
 import json
 import scipy.sparse as sp
 import numpy as np
@@ -77,11 +75,16 @@ print '\nCross matching ratings across businesses';
 print '    You\'re mapping %d businesses...'%(len(LbidMap));
 cross_TrL = {}; 
 counter = 0;
+Lcount = 0;
+summation = {};
+fullSummation = 0;
 totalbid = len(LbidMap);
 for Tbid in TbidMap :
     cross_TrL[Tbid] = {};
+    summation[Tbid] = 0; 
     counter += 1;
     for Lbid in LbidMap :
+	Lcount += 1;
 	# Ensure T and L aren't the same business
 	if Tbid != Lbid :
 	    cross_TrL[Tbid][Lbid] = {};
@@ -104,32 +107,19 @@ for Tbid in TbidMap :
 				posTbid += 1;
 	        numerator = posTbid + 1;
 	        denominator = starSum + 1;
-	        probability = float(numerator) / denominator;
-	        cross_TrL[Tbid][Lbid][stars] = probability;
+	        crossProbability = float(numerator) / denominator;
+		simpleProbability = businessRevs[Tbid]['prob'];
+	        cross_TrL[Tbid][Lbid][stars] = crossProbability;
+		summationItem = log(crossProbability) - float(log(simpleProbability));
+	   	summation[Tbid] += summationItem; 
+		fullSummation += summationItem;
 	        sys.stdout.write(str('%.2f'%(time.clock()-start)));
-	        print ' %d/%d  Tbid:%s  Lbid:%s  star:%.1f  prob:%.3f'%(counter, totalbid, Tbid, Lbid, stars, probability);
+	        print ' | Tbid:%d/%d Lbid:%d/%d | advProb:%.3f simProb:%.3f'%(counter, totalbid, Lcount, totalbid, crossProbability, simpleProbability);
 print '    %.2f seconds elapsed'%(time.clock()-start);
        
-cross_probability = {}; 
-print '\nDetermining Advanced Probability...';
-print '    This will take a while... you\'re trying to map %d by %d across 5 stars...'%(len(star_info), len(LbidMap));
-for Tbid in posTbid :
-    cross_probability[Tbid] = {};
-    for Lbid in posTbid[Tbid] :
-	cross_probability[Tbid][Lbid] = {};
-        for starRating in posTbid[Tbid][Lbid] :
-	    numerator = 1 + len(posTbid[Tbid][Lbid][starRating]);
-	    denominator = 1 + len(star_info[starRating][Lbid]); 
-	    probability = float(numerator) / denominator;
-    	    cross_probability[Tbid][Lbid][starRating] = probability;
-	    print "Tbid: %s   Lbid: %s   Star: %.2f   Prob: %.2f"%(Tbid, Lbid, starRating, probability);
-print '    %.2f seconds elapsed'%(time.clock()-start);
-
-
-
 
 print 'Running evaluation...';
-score_dir = 'scores/probability_%s'%(test_cond);
+score_dir = 'scores/AdvancedProbability_%s'%(test_cond);
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
@@ -138,7 +128,8 @@ for reviewer in test_reviewer_lst :
     outfile = '%s/%s.scores'%(score_dir,reviewer);
     fid = open(outfile,'w');
     bid_lst = [];
-    score_lst = [];
+    score1_lst = [];
+    score2_lst = [];
     label_lst = [];
 
     # For each reviewer, find the buses reviewed
@@ -148,12 +139,14 @@ for reviewer in test_reviewer_lst :
         bid = value[0];
         bid_lst.append(bid);
         label_lst.append(value[2]);
-        if bid not in businessRevs :
-            score_lst.append(0.0);
-        else :
-            score_lst.append(businessRevs[bid]['prob']);
+	score1 = log(businessRevs[bid]['prob']) + float(fullSummation);
+	score1_lst.append(score1);
+	score2 = log(businessRevs[bid]['prob']) + float(summation[bid]);
+	score2_lst.append(score2);
+	print 'Bid:%s  Score1:%.6f  Score2:%.6f'%(bid, score1, score2);
     #end
-    fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
+    fid.write('\n'.join(['%s %.6f %.6f %d'%(x[0],x[1],x[2],x[3]) for x in zip(bid_lst, score1_lst, score2_lst, label_lst)])+'\n');
     fid.close();
 #end
 print '   %.2f seconds elapsed'%(time.clock()-start);
+print "Somehow we made it to the end. Congrats"
