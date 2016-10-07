@@ -77,9 +77,11 @@ print '\nCross matching ratings across businesses';
 print '    You\'re mapping %d businesses...'%(len(LbidMap));
 cross_TrL = []; 
 for Tbid in TbidMap :
+    cross_TrL[Tbid] = {};
     for Lbid in LbidMap :
 	# Ensure T and L aren't the same business
 	if Tbid != Lbid :
+	    cross_TrL[Tbid][Lbid] = {};
 	    # Get numer of reviews at EACH STAR rate for L
     	    for stars in LbidMap[Lbid] :
 	        starSum = len(LbidMap[Lbid][stars]);
@@ -100,10 +102,9 @@ for Tbid in TbidMap :
 	        numerator = posTbid + 1;
 	        denominator = starSum + 1;
 	        probability = float(numerator) / denominator;
-	        evaluation = {'Tbid':Tbid, 'Lbid':Lbid, 'star':stars, 'prob':probability}
-	        cross_TrL.append(evaluation);
+	        cross_TrL[Tbid][Lbid][stars] = probability;
 	        sys.stdout.write(str('%.2f'%(time.clock()-start)));
-	        print evaluation;
+	        print 'Tbid:%s  Lbid:%s  star:%.1f  prob:%.3f'%(Tbid, Lbid, stars, probability);
 	    # end for stars
     # end for Lbid
 # end for Tbid
