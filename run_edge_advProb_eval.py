@@ -1,6 +1,7 @@
 import json
 import scipy.sparse as sp
 import numpy as np
+import math
 import pickle
 import time
 import sklearn.metrics as metrics
@@ -110,7 +111,7 @@ for Tbid in TbidMap :
 	        crossProbability = float(numerator) / denominator;
 		simpleProbability = businessRevs[Tbid]['prob'];
 	        cross_TrL[Tbid][Lbid][stars] = crossProbability;
-		summationItem = log(crossProbability) - float(log(simpleProbability));
+		summationItem = math.log(crossProbability) - float(math.log(simpleProbability));
 	   	summation[Tbid] += summationItem; 
 		fullSummation += summationItem;
 	        sys.stdout.write(str('%.2f'%(time.clock()-start)));
@@ -139,9 +140,9 @@ for reviewer in test_reviewer_lst :
         bid = value[0];
         bid_lst.append(bid);
         label_lst.append(value[2]);
-	score1 = log(businessRevs[bid]['prob']) + float(fullSummation);
+	score1 = math.log(businessRevs[bid]['prob']) + float(fullSummation);
 	score1_lst.append(score1);
-	score2 = log(businessRevs[bid]['prob']) + float(summation[bid]);
+	score2 = math.log(businessRevs[bid]['prob']) + float(summation[bid]);
 	score2_lst.append(score2);
 	print 'Bid:%s  Score1:%.6f  Score2:%.6f'%(bid, score1, score2);
     #end
