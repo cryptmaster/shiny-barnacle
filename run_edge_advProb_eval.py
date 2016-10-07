@@ -1,3 +1,5 @@
+# This is a copy of original run_edge_advProb_eval.py 
+#  used to test modifications for speed
 import json
 import scipy.sparse as sp
 import numpy as np
@@ -32,10 +34,9 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 # Create list of positive and negative reviews
 print '\nCompiling Review Maps... ';
-business_revs = {}; 
-pos_bus_revs = {};
-rating_map = {};
-star_info = {};
+businessRevs = {};
+LbidMap = {};
+TbidMap = {};
 for user in reviewer_idx :
     for review in data['Reviewer Reviews'][user] :
 	reviewInfo = data['Review Information'][review];
@@ -43,96 +44,89 @@ for user in reviewer_idx :
 	bid = reviewInfo['business_id'];
 
 	# Initailize lists and tuples where necesary
-	if stars not in star_info : 
-	    star_info[stars] = {};
-	if bid not in star_info :
-	    star_info[stars][bid] = []; 
-	if bid not in business_revs :
-   	    business_revs[bid] = [];
-            pos_bus_revs[bid] = [];	
+	if bid not in businessRevs:
+   	    businessRevs[bid] = {};
+	    LbidMap[bid] = {};
+	    TbidMap[bid] = {};
+	    if 'total' not in businessRevs[bid] :
+   	        businessRevs[bid]['total'] = 0;
+	    if 'positive' not in businessRevs[bid] :
+	        businessRevs[bid]['positive'] = 0;
 
-	# This sequence ensures only mapping of T 
-	#  businesses that're of positive review
-	#  since we only are interested in # of positive 
-	#  reviews to T from people who gave rL to L
 	if stars in pos_list :
-	    pos_bus_revs[bid].append(1);
-	    if bid not in rating_map :
-	        rating_map[bid] = {};    
-	    if stars not in rating_map[bid] :
-	        rating_map[bid][stars] = [];
+	    businessRevs[bid]['positive'] += 1;
+	if stars not in LbidMap[bid] :
+	    LbidMap[bid][stars] = {};
+	if user not in TbidMap[bid] :
+	    TbidMap[bid][user] = {};
 
 	# Track reviewID with each business
 	# Track information on ratings to each business
-        business_revs[bid].append(review);
-        star_info[stars][bid].append(user);	
+        businessRevs[bid]['total'] += 1;
+        probability = businessRevs[bid]['positive'] / float(businessRevs[bid]['total']);
+        businessRevs[bid]['prob'] = probability; 
+	LbidMap[bid][stars][review] = user;
+	TbidMap[bid][user][review] = stars;
     #end
 #end
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-print '\nDetermining classical probability...';
-bus_rank = {};
-for bid in business_revs :
-    probability = len(pos_bus_revs[bid]) / float(len(business_revs[bid]));
-    rank = {'prob':probability, 'pos':len(pos_bus_revs[bid]), 'tot':len(business_revs[bid])};
-    bus_rank[bid] = rank; 
-#end
-print '   %.2f seconds elapsed'%(time.clock()-start);
-
 # Determine and map all users who rated business L as rL
 #  and gave business T a positive rating
 print '\nCross matching ratings across businesses';
-print '    You\'re mapping %d \'positive\' businesses...'%(len(rating_map));
-cross_TrL = {};
-count = 0;
-# Might as well only iterate over our known pos revs for T
-for Tbid in rating_map : 
+print '    You\'re mapping %d businesses...'%(len(LbidMap));
+cross_TrL = {}; 
+counter = 0;
+totalbid = len(LbidMap);
+for Tbid in TbidMap :
     cross_TrL[Tbid] = {};
-    count += 1;
-    for starRating in rating_map[Tbid] :
-	# Extract precise star ratings rL for Lbid
-	print '%d %s  %d    %.2f'%(count, Tbid, len(rating_map[Tbid][starRating]), time.clock()-start);
-        for Lbid in star_info[starRating] :
-	    if Lbid != Tbid : # Don't want to map the same biz 2x
-		if Lbid not in cross_TrL[Tbid] :
-		    cross_TrL[Tbid][Lbid] = {};
-		cross_TrL[Tbid][Lbid][starRating] = [];
-		cross_TrL[Tbid][Lbid][starRating].append(1);
+    counter += 1;
+    for Lbid in LbidMap :
+	# Ensure T and L aren't the same business
+	if Tbid != Lbid :
+	    cross_TrL[Tbid][Lbid] = {};
+	    # Get numer of reviews at EACH STAR rate for L
+    	    for stars in LbidMap[Lbid] :
+	        starSum = len(LbidMap[Lbid][stars]);
+	        posTbid = 0;
+		# For each review check if user rated the Tbid
+		for Lreview in LbidMap[Lbid][stars] :
+		    user = LbidMap[Lbid][stars][Lreview];
+		    if user in TbidMap[Tbid] :
+			# user rev'd Tbid, get their Trid 
+			#  and see if they gave Tbid a pos rev
+			for Trid in TbidMap[Tbid][user] :
+			    # Currently this does not account for multiple reviews
+			    #  given by the same person. Just want to get this 
+			    #  working and then I'll minimize this
+			    Tstar = TbidMap[Tbid][user][Trid];
+			    if Tstar in pos_list :
+				posTbid += 1;
+	        numerator = posTbid + 1;
+	        denominator = starSum + 1;
+	        probability = float(numerator) / denominator;
+	        cross_TrL[Tbid][Lbid][stars] = probability;
+	        sys.stdout.write(str('%.2f'%(time.clock()-start)));
+	        print ' %d/%d  Tbid:%s  Lbid:%s  star:%.1f  prob:%.3f'%(counter, totalbid, Tbid, Lbid, stars, probability);
 print '    %.2f seconds elapsed'%(time.clock()-start);
        
 cross_probability = {}; 
 print '\nDetermining Advanced Probability...';
-print '    This will take a while... you\'re trying to map %d by %d across 5 stars...'%(len(star_info), len(rating_map));
-for Tbid in crossTrL :
+print '    This will take a while... you\'re trying to map %d by %d across 5 stars...'%(len(star_info), len(LbidMap));
+for Tbid in posTbid :
     cross_probability[Tbid] = {};
-    for Lbid in crossTrL[Tbid] :
+    for Lbid in posTbid[Tbid] :
 	cross_probability[Tbid][Lbid] = {};
-        for starRating in crossTrL[Tbid][Lbid] :
-	    numerator = 1 + len(crossTrL[Tbid][Lbid][starRating]);
+        for starRating in posTbid[Tbid][Lbid] :
+	    numerator = 1 + len(posTbid[Tbid][Lbid][starRating]);
 	    denominator = 1 + len(star_info[starRating][Lbid]); 
 	    probability = float(numerator) / denominator;
     	    cross_probability[Tbid][Lbid][starRating] = probability;
 	    print "Tbid: %s   Lbid: %s   Star: %.2f   Prob: %.2f"%(Tbid, Lbid, starRating, probability);
-
-#for Tbid in star_info :
-#    for Lbid in rating_map :
-#	cross_probability[Tbid][Lbid] = {};
-#        for Tstar in star_info[Tbid] :
-#            Treviews = len(star_info[Tbid][Tstar]);
-#            if Tstar in rating_map[Lbid] :
-#                Lreviews = len(rating_map[Lbid][Tstar]);
-#                probability = float(Lreviews) / Treviews;
-#		cross_probability[Tbid][Lbid][Tstar] = probability;
-	# end for Lbid
-#        print cross_probability[Tbid][Lbid];
-    # end for Tstar
-# end for Tbid
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-# Is this even relevant anymore?
-print '\nSorting the Reviews...';
-sortedList = sorted(bus_rank.iteritems(), key=lambda (x, y): (y['prob'], y['total']));
-print '   %.2f seconds elapsed'%(time.clock()-start);
+
+
 
 print 'Running evaluation...';
 score_dir = 'scores/probability_%s'%(test_cond);
@@ -154,10 +148,10 @@ for reviewer in test_reviewer_lst :
         bid = value[0];
         bid_lst.append(bid);
         label_lst.append(value[2]);
-        if bid not in bus_rank :
+        if bid not in businessRevs :
             score_lst.append(0.0);
         else :
-            score_lst.append(bus_rank[bid]['prob']);
+            score_lst.append(businessRevs[bid]['prob']);
     #end
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
