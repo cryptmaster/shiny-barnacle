@@ -48,6 +48,8 @@ for uid in data['Train Reviewer List'] :
         stars = int(float(data['Review Information'][rid]['stars']));
 	# For each star rating, save index value of associated business_idx and reviewer_idx
         r[stars].append(business_idx[data['Review Information'][rid]['business_id']]);
+        print ([data['Review Information'][rid]['business_id']]), 
+        print ' UID: ' + str(uid) + 'RID: ' + str(rid) + 'ReID: ' + reviewer_idx[uid]
         c[stars].append(reviewer_idx[uid]);
     #end
 #end
@@ -82,6 +84,7 @@ if 'posneg' in edge_type :
     for s in pos_list : Ap += A[s]; #end
     for s in neg_list : An += A[s]; #end
 #end
+print 'of edgetype ' + edge_type + 'values of pos_list = ' + pos_list;
 numerator = sp.csr_matrix(([],([],[])),shape=[R,R]);
 denominator = sp.csr_matrix(([],([],[])),shape=[R,R]);
 print "Creating the transpose map for numerator";
@@ -94,18 +97,35 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 print "You have the numerator now with: "
 print "shape: " + str(numerator.shape);
 print "stored elements: " + str(numerator.getnnz());
+print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print "\n You have the denominator now with: "
 print "shape: " + str(denominator.shape);
 print "stored elements: " + str(denominator.getnnz());
+print '   %.2f seconds elapsed'%(time.clock()-start);
 
 ksize = denominator.shape[0]
 k = sp.csr_matrix(([],([],[])),shape=[ksize,ksize]) 
 print "empty K matrix created"
-k = numerator.dot(sp.linalg.inv(sp.csc_matrix(denominator)))
+print '   %.2f seconds elapsed'%(time.clock()-start);
+
+denom = denominator.tocsc()
+print "Transpose denom created"
+print '   %.2f seconds elapsed'%(time.clock()-start);
+#halfeq = sp.linalg.inv(denom)
+#lu = sp.linalg.splu(denom)
+#eye = np.eye(ksize)
+#halfeq = lu.solve(eye)
+
+print "inverse of denominator created"
+print '   %.2f seconds elapsed'%(time.clock()-start);
+#k = numerator.dot(halfeq);
+k = sp.linalg.spsolve(denom, numerator)
+
 print "\n You have the k matrix now with: "
 print "shape: " + str(k.shape);
 print "stored elements: " + str(k.getnnz());
+print '   %.2f seconds elapsed'%(time.clock()-start);
 
 #############################
 # CURRENT KILL LINE
