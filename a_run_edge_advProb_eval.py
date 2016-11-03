@@ -42,22 +42,18 @@ A = {};
 for s in [1,2,3,4,5] :
     r[s] = [];
     c[s] = [];
-#end
+
 for uid in data['Train Reviewer List'] :
     for rid in data['Reviewer Reviews'][uid] :
         stars = int(float(data['Review Information'][rid]['stars']));
 	# For each star rating, save index value of associated business_idx and reviewer_idx
         r[stars].append(business_idx[data['Review Information'][rid]['business_id']]);
         c[stars].append(reviewer_idx[uid]);
-    #end
-#end
 for s in r.keys() :
     # map the reviewer's reviews to businesses
     #  the np.ones creates a matrix of len(r[s]) of ones
     A[s] = sp.csr_matrix((np.ones((len(r[s]),)),(r[s],c[s])),shape=[B,R]);
-#end
 print '   %.2f seconds elapsed'%(time.clock()-start);
-
 
 print 'Building graph...'
 if 'posneg' in edge_type :
@@ -78,10 +74,9 @@ if 'posneg' in edge_type :
     else :
         print 'Unknown edge type '+edge_type;
         sys.exit();
-    #end
     for s in pos_list : Ap += A[s]; #end
     for s in neg_list : An += A[s]; #end
-#end
+
 numerator = sp.csr_matrix(([],([],[])),shape=[R,R]);
 denominator = sp.csr_matrix(([],([],[])),shape=[R,R]);
 print "Creating the transpose map for numerator";
@@ -92,31 +87,30 @@ for s in pos_list :
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print "You have the numerator now with: "
-print "shape: " + str(numerator.shape);
-print "stored elements: " + str(numerator.getnnz());
-print '   %.2f seconds elapsed'%(time.clock()-start);
-
+print "\tshape: " + str(numerator.shape);
+print "\tstored elements: " + str(numerator.getnnz());
 print "\n You have the denominator now with: "
-print "shape: " + str(denominator.shape);
-print "stored elements: " + str(denominator.getnnz());
+print "\tshape: " + str(denominator.shape);
+print "\tstored elements: " + str(denominator.getnnz());
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
-print "Transpose denom created"
+print "Extracting RCD for numerator & denominator"
+numcol = sp.coo_matrix(numerator)
+demcol = sp.coo_matrix(denominator)
+numcol_r = numcol.row
+numcol_c = numcol.col
+numcol_d = numcol.data
+demcol_r = demcol.row
+demcol_c = demcol.col
+demcol_d = demcol.data
 print '   %.2f seconds elapsed'%(time.clock()-start);
 #halfeq = sp.linalg.inv(denom)
 #lu = sp.linalg.splu(denom)
 #eye = np.eye(ksize)
 #halfeq = lu.solve(eye)
-
-print "inverse of denominator created"
-print '   %.2f seconds elapsed'%(time.clock()-start);
 #k = numerator.dot(halfeq);
 #k = sp.linalg.spsolve(denom, numerator)
 
-#print "\n You have the k matrix now with: "
-print "shape: " + str(k.shape);
-print "stored elements: " + str(k.getnnz());
-print '   %.2f seconds elapsed'%(time.clock()-start);
 
 #############################
 # CURRENT KILL LINE
