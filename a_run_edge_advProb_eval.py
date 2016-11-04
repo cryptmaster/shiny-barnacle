@@ -5,16 +5,13 @@ import pickle
 import time
 import sklearn.metrics as metrics
 import util_functions as util
-
 import sys, os
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 import plot_tools as plt
 
 #sample run: python -i a_run_edge_advProb_eval.py posneg234out 1_5
-
 edge_type = sys.argv[1];
 test_cond = sys.argv[2];
-
 start = time.clock();
 
 execfile('load_edge_attr_data.py');
@@ -42,7 +39,6 @@ A = {};
 for s in [1,2,3,4,5] :
     r[s] = [];
     c[s] = [];
-
 for uid in data['Train Reviewer List'] :
     for rid in data['Reviewer Reviews'][uid] :
         stars = int(float(data['Review Information'][rid]['stars']));
@@ -51,7 +47,6 @@ for uid in data['Train Reviewer List'] :
         c[stars].append(reviewer_idx[uid]);
 for s in r.keys() :
     # map the reviewer's reviews to businesses
-    #  the np.ones creates a matrix of len(r[s]) of ones
     A[s] = sp.csr_matrix((np.ones((len(r[s]),)),(r[s],c[s])),shape=[B,R]);
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
@@ -76,34 +71,31 @@ if 'posneg' in edge_type :
         sys.exit();
     for s in pos_list : Ap += A[s]; #end
     for s in neg_list : An += A[s]; #end
+print '\t%.2f seconds elapsed'%(time.clock()-start);
 
-numerator = sp.csr_matrix(([],([],[])),shape=[R,R]);
-denominator = sp.csr_matrix(([],([],[])),shape=[R,R]);
-print "Creating the transpose map for numerator";
+print 'Building Numerator && Denominator...'
+#numerator = sp.csr_matrix(([],([],[])),shape=[R,R]);
+#denominator = sp.csr_matrix(([],([],[])),shape=[R,R]);
+numerator = {};
+demoinator = {};
+#denominator = Ap.sum(axis=1)
 for s in pos_list :
     print "For S = %d"%(s);
-    numerator += sp.csr_matrix(A[s].T.dot(Ap));
-    denominator += sp.csr_matrix(A[s].T.dot(A[s]));
-print '   %.2f seconds elapsed'%(time.clock()-start);
+    numerator[s] = A[s].dot(Ap.T);
+    denominator[s] = A[s].dot(A[s].T);
+print '\t%.2f seconds elapsed'%(time.clock()-start);
 
 print "You have the numerator now with: "
 print "\tshape: " + str(numerator.shape);
 print "\tstored elements: " + str(numerator.getnnz());
-print "\n You have the denominator now with: "
+print "You have the denominator now with: "
 print "\tshape: " + str(denominator.shape);
 print "\tstored elements: " + str(denominator.getnnz());
-print '   %.2f seconds elapsed'%(time.clock()-start);
+print '\n\t%.2f seconds elapsed'%(time.clock()-start);
 
-print "Extracting RCD for numerator & denominator"
-numcol = sp.coo_matrix(numerator)
-demcol = sp.coo_matrix(denominator)
-numcol_r = numcol.row
-numcol_c = numcol.col
-numcol_d = numcol.data
-demcol_r = demcol.row
-demcol_c = demcol.col
-demcol_d = demcol.data
-print '   %.2f seconds elapsed'%(time.clock()-start);
+#numcol = sp.coo_matrix(numerator)
+#demcol = sp.coo_matrix(denominator)
+
 #halfeq = sp.linalg.inv(denom)
 #lu = sp.linalg.splu(denom)
 #eye = np.eye(ksize)
