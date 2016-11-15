@@ -45,7 +45,6 @@ for uid in data['Train Reviewer List'] :
 	# For each star rating, save index value of associated business_idx and reviewer_idx
         r[stars].append(business_idx[data['Review Information'][rid]['business_id']]);
         c[stars].append(reviewer_idx[uid]);
-
 I = sp.csr_matrix(([],([],[])),shape=[B,R]);
 for s in r.keys() :
     # map the reviewer's reviews to businesses
@@ -77,8 +76,6 @@ if 'posneg' in edge_type :
 print '\t%.2f seconds elapsed'%(time.clock()-start);
 
 print 'Building Numerator && Denominator...'
-#numerator = sp.csr_matrix(([],([],[])),shape=[R,R]);
-#denominator = sp.csr_matrix(([],([],[])),shape=[R,R]);
 numerator = {}
 denominator = {}
 for s in pos_list :
@@ -88,17 +85,14 @@ for s in pos_list :
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print "You have the numerator now with: "
-print "\tshape: " + str(numerator[5].shape)
-print "\tstored elements: " + str(numerator[5].getnnz())
+print "\tshape: " + str(numerator[5].shape) + "\tstored elements: " + str(numerator[5].getnnz())
 print "You have the denominator now with: "
-print "\tshape: " + str(denominator[5].shape)
-print "\tstored elements: " + str(denominator[5].getnnz())
+print "\tshape: " + str(denominator[5].shape) + "\tstored elements: " + str(denominator[5].getnnz())
 print '\n\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Creating normalization...'
 Ncoo = sp.coo_matrix(numerator[5])
 Dcoo = sp.coo_matrix(denominator[5])
-
 offset = np.ones((len(Dcoo.data),))
 Noff = sp.csr_matrix((offset, (Dcoo.row, Dcoo.col)),shape=[B,B])
 Doff = sp.csr_matrix(((offset.dot(2)), (Dcoo.row, Dcoo.col)),shape=[B,B])
@@ -121,6 +115,9 @@ for x in range(0,B) :
             num = numerator[5][x,y]
             den = denominator[5][x,y]
             print "(x,y):%d,%d:\tNo:%.0f Do:%.0f\tN:%.1f D:%.1f\tP:%.2f%%"%(x,y,numD,denD,num,den,prob)
+
+
+
 #############################
 # CURRENT KILL LINE
 #############################
@@ -130,9 +127,6 @@ s = K.sum(axis=0);
 S = sp.spdiags(1/s,0,K.shape[0],K.shape[1]);
 P = K.dot(S);
 print '   %.2f seconds elapsed'%(time.clock()-start);
-
-
-
 
 print 'Prepping evaluation...';
 np.random.seed(159);
