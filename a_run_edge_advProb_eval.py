@@ -111,7 +111,16 @@ Pdat = Numerator.tocoo().data / Denominator.tocoo().data
 P = sp.csr_matrix((Pdat, (Dcoo.row, Dcoo.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
-
+print 'Here\'s your current probabilities...'
+for x in range(0,B) :
+    for y in range(0,B) :
+        if P[x,y] != 0 :
+            prob = P[x,y] * 100
+            numD = Numerator[x,y]
+            denD = Denominator[x,y]
+            num = numerator[5][x,y]
+            den = denominator[5][x,y]
+            print "(x,y):%d,%d:\tNo:%.0f Do:%.0f\tN:%.1f D:%.1f\tP:%.2f%%"%(x,y,numD,denD,num,den,prob)
 #############################
 # CURRENT KILL LINE
 #############################
