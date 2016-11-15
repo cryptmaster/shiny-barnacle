@@ -114,7 +114,7 @@ for x in range(0,B) :
             denD = Denominator[x,y]
             num = numerator[5][x,y]
             den = denominator[5][x,y]
-            print "(x,y):%d,%d:\tNo:%.0f Do:%.0f\tN:%.1f D:%.1f\tP:%.2f%%"%(x,y,numD,denD,num,den,prob)
+            print "(x,y):(%d,%d)\tNo:%.0f Do:%.0f\tN:%.0f D:%.0f\tP:%.2f%%"%(x,y,numD,denD,num,den,prob)
 
 
 
