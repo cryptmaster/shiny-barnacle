@@ -36,6 +36,7 @@ print 'Building Business x Reviewer index...'
 r = {};
 c = {};
 A = {};
+b = {};
 for s in [1,2,3,4,5] :
     r[s] = [];
     c[s] = [];
@@ -43,6 +44,16 @@ for uid in data['Train Reviewer List'] :
     for rid in data['Reviewer Reviews'][uid] :
         stars = int(float(data['Review Information'][rid]['stars']));
 	# For each star rating, save index value of associated business_idx and reviewer_idx
+        busID = business_idx[data['Review Information'][rid]['business_id']];
+        if busID not in b :
+            b[busID] = {}
+            b[busID]['rate'] = stars
+            b[busID]['numRate'] = 1
+            b[busID]['avg'] = float(stars/5.0)
+        else :
+            b[busID]['rate'] += stars
+            b[busID]['numRate'] += 1
+            b[busID]['avg'] = float(b[busID]['rate']) / (b[busID]['numRate'] * 5)
         r[stars].append(business_idx[data['Review Information'][rid]['business_id']]);
         c[stars].append(reviewer_idx[uid]);
 I = sp.csr_matrix(([],([],[])),shape=[B,R]);
@@ -100,24 +111,28 @@ print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Calculating advanced probability...'
 Numerator = numerator[5] + Noff
-Numerator.sort_indices()
 Denominator = denominator[5] + Doff
+Numerator.sort_indices()
 Denominator.sort_indices()
-Pdat = Numerator.tocoo().data / Denominator.tocoo().data
+Dcoo = sp.coo_matrix(Denominator)
+Pdat = Numerator.tocoo().data / Dcoo.data
 P = sp.csr_matrix((Pdat, (Dcoo.row, Dcoo.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Here\'s your current probabilities...'
 for x in range(0,B) :
     busX = I[:,x]
-    for y in range(0,B) :
+    tmpRow = P.getrow(x).tocoo().col
+    for y in tmpRow :
         prob = P[x,y] * 100
-        if prob > 0 :
-            busY = I[:,y]
-            numD = Numerator[x,y]
-            denD = Denominator[x,y]
-            print "(x,y):(%d,%d)\tNo:%.0f Do:%.0f\tP:%.2f%%"%(x,y,numD,denD,prob)
-
+        busY = I[:,y]
+        numD = Numerator[x,y]
+        denD = Denominator[x,y]
+        bXav = float(b[x]['avg'])*100.0
+        bYav = float(b[y]['avg'])*100.0
+        bXn = b[x]['numRate']
+        bYn = b[y]['numRate']
+        print "(%d,%d)\tNo:%.0f Do:%.0f\tXav:%d=%.2f%% Yav:%d=%.2f%%\tP:%.2f%%"%(x,y,numD,denD,bXn,bXav,bYn,bYav,prob)
 
 #############################
 # CURRENT KILL LINE
