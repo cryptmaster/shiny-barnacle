@@ -93,6 +93,8 @@ for s in pos_list :
     print "For S = %d"%(s)
     numerator[s] = A[s].dot(Ap.T)
     denominator[s] = A[s].dot(I.T)
+numeratorP = Ap.dot(Ap.T)
+denominatorP = Ap.dot(I.T)
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print "You have the numerator now with: "
@@ -101,38 +103,62 @@ print "You have the denominator now with: "
 print "\tshape: " + str(denominator[5].shape) + "\tstored elements: " + str(denominator[5].getnnz())
 print '\n\t%.2f seconds elapsed'%(time.clock()-start)
 
-print 'Creating normalization...'
-Ncoo = sp.coo_matrix(numerator[5])
-Dcoo = sp.coo_matrix(denominator[5])
-offset = np.ones((len(Dcoo.data),))
-Noff = sp.csr_matrix((offset, (Dcoo.row, Dcoo.col)),shape=[B,B])
-Doff = sp.csr_matrix(((offset.dot(2)), (Dcoo.row, Dcoo.col)),shape=[B,B])
+print 'Creating normalization for star=5...'
+numerator[5].sort_indices()
+denominator[5].sort_indices()
+Ncoo5 = sp.coo_matrix(numerator[5])
+Dcoo5 = sp.coo_matrix(denominator[5])
+offset5 = np.ones((len(Dcoo5.data),))
+Noff5 = sp.csr_matrix((offset5, (Dcoo5.row, Dcoo5.col)),shape=[B,B])
+Doff5 = sp.csr_matrix(((offset5.dot(2)), (Dcoo5.row, Dcoo5.col)),shape=[B,B])
+print '\t%.2f seconds elapsed'%(time.clock()-start)
+
+print 'Creating normalization for star=positive...'
+numeratorP.sort_indices()
+denominatorP.sort_indices()
+NcooP = sp.coo_matrix(numeratorP)
+DcooP = sp.coo_matrix(denominatorP)
+offsetP = np.ones((len(DcooP.data),))
+NoffP = sp.csr_matrix((offsetP, (DcooP.row, DcooP.col)),shape=[B,B])
+DoffP = sp.csr_matrix(((offsetP.dot(2)), (DcooP.row, DcooP.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Calculating advanced probability...'
-Numerator = numerator[5] + Noff
-Denominator = denominator[5] + Doff
-Numerator.sort_indices()
-Denominator.sort_indices()
-Dcoo = sp.coo_matrix(Denominator)
-Pdat = Numerator.tocoo().data / Dcoo.data
-P = sp.csr_matrix((Pdat, (Dcoo.row, Dcoo.col)),shape=[B,B])
+Numerator5 = numerator[5] + Noff5
+Denominator5 = denominator[5] + Doff5
+Numerator5.sort_indices()
+Denominator5.sort_indices()
+Dcoo5 = sp.coo_matrix(Denominator5)
+Pdat5 = Numerator5.tocoo().data / Dcoo5.data
+P5 = sp.csr_matrix((Pdat5, (Dcoo5.row, Dcoo5.col)),shape=[B,B])
+
+NumeratorP = numeratorP + NoffP
+DenominatorP = denominatorP + DoffP
+NumeratorP.sort_indices()
+DenominatorP.sort_indices()
+DcooP = sp.coo_matrix(DenominatorP)
+PdatP = NumeratorP.tocoo().data / DcooP.data
+Pp = sp.csr_matrix((PdatP, (DcooP.row, DcooP.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Here\'s your current probabilities...'
 for x in range(0,B) :
     busX = I[:,x]
-    tmpRow = P.getrow(x).tocoo().col
+    tmpRow = Pp.getrow(x).tocoo().col
     for y in tmpRow :
-        prob = P[x,y] * 100
-        busY = I[:,y]
-        numD = Numerator[x,y]
-        denD = Denominator[x,y]
-        bXav = float(b[x]['avg'])*100.0
-        bYav = float(b[y]['avg'])*100.0
-        bXn = b[x]['numRate']
-        bYn = b[y]['numRate']
-        print "(%d,%d)\tNo:%.0f Do:%.0f\tXav:%d=%.2f%% Yav:%d=%.2f%%\tP:%.2f%%"%(x,y,numD,denD,bXn,bXav,bYn,bYav,prob)
+        prob = P5[x,y] * 100
+        alProb = Pp[x,y] * 100
+        if prob != alProb :
+            busY = I[:,y]
+            numD5 = Numerator5[x,y]
+            denD5 = Denominator5[x,y]
+            numDP = NumeratorP[x,y]
+            denDP = DenominatorP[x,y]
+            bXav = float(b[x]['avg'])*100
+            bYav = float(b[y]['avg'])*100
+            bXn = b[x]['numRate']
+            bYn = b[y]['numRate']
+            print "(%d,%d)\tN5:%.0f D5:%.0f\tNP:%.0f DP:%.0f\tXav:%.2f%%=%d Yav:%.2f%%=%d\tP:%.2f%%, %.2f%%"%(x,y,numD5,denD5,numDP,denDP,bXav,bXn,bYav,bYn,prob,alProb)
 
 #############################
 # CURRENT KILL LINE
