@@ -10,8 +10,17 @@ sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 import plot_tools as plt
 
 #sample run: python -i a_run_edge_advProb_eval.py posneg234out 1_5
+
+if len(sys.argv) < 5 :
+    print '\n\nMissing args at execution.'
+    print 'Sample execution (where optional items in []: '
+    print '\tpython [-i] a_run_edge_advProb_eval.py edge_type test_cond max_iter max_step\n\n'
+    sys.exit()
+
 edge_type = sys.argv[1];
 test_cond = sys.argv[2];
+max_iter = sys.argv[3]
+max_step = sys.argv[4]
 start = time.clock();
 
 execfile('load_edge_attr_data.py');
@@ -142,29 +151,30 @@ Pp = sp.csr_matrix((PdatP, (DcooP.row, DcooP.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Here\'s your current probabilities...'
-for x in range(0,B) :
-    busX = I[:,x]
-    tmpRow = Pp.getrow(x).tocoo().col
-    for y in tmpRow :
-        prob = P5[x,y] * 100
-        alProb = Pp[x,y] * 100
-        if prob != alProb :
-            busY = I[:,y]
-            numD5 = Numerator5[x,y]
-            denD5 = Denominator5[x,y]
-            numDP = NumeratorP[x,y]
-            denDP = DenominatorP[x,y]
-            bXav = float(b[x]['avg'])*100
-            bYav = float(b[y]['avg'])*100
-            bXn = b[x]['numRate']
-            bYn = b[y]['numRate']
-            print "(%d,%d)\tN5:%.0f D5:%.0f\tNP:%.0f DP:%.0f\tXav:%.2f%%=%d Yav:%.2f%%=%d\tP:%.2f%%, %.2f%%"%(x,y,numD5,denD5,numDP,denDP,bXav,bXn,bYav,bYn,prob,alProb)
-
+#for x in range(0,B) :
+#    busX = I[:,x]
+#    tmpRow = Pp.getrow(x).tocoo().col
+#    for y in tmpRow :
+#        prob = P5[x,y] * 100
+#        alProb = Pp[x,y] * 100
+#        if prob != alProb :
+#            busY = I[:,y]
+#            numD5 = Numerator5[x,y]
+#            denD5 = Denominator5[x,y]
+#            numDP = NumeratorP[x,y]
+#            denDP = DenominatorP[x,y]
+#            bXav = float(b[x]['avg'])*100
+#            bYav = float(b[y]['avg'])*100
+#            bXn = b[x]['numRate']
+#            bYn = b[y]['numRate']
+#            print "(%d,%d)\tN5:%.0f D5:%.0f\tNP:%.0f DP:%.0f\tXav:%.2f%%=%d Yav:%.2f%%=%d\tP:%.2f%%, %.2f%%"%(x,y,numD5,denD5,numDP,denDP,bXav,bXn,bYav,bYn,prob,alProb)
+#    print '*** %d COMPLETE, \t%.2f seconds elapsed'%(x,time.clock()-start)
+    
 #############################
 # CURRENT KILL LINE
 #############################
 
-K = sp.coo_matrix(K);
+K = sp.coo_matrix(P5);
 s = K.sum(axis=0);
 S = sp.spdiags(1/s,0,K.shape[0],K.shape[1]);
 P = K.dot(S);
@@ -173,7 +183,7 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 print 'Prepping evaluation...';
 np.random.seed(159);
 if max_iter > 0 :
-    score_dir = 'projects/scores/single_%s_%03d_%04d_%s'%(edge_type,max_step,max_iter,test_cond);
+    score_dir = 'scores/single_%s_%03d_%04d_%s'%(edge_type,max_step,max_iter,test_cond);
     K = sp.coo_matrix(K);
     bid_r = K.row;
     bid_c = K.col;
@@ -189,7 +199,7 @@ if max_iter > 0 :
         edge_w[bid_r[n]].append(bid_d[n]);
     #end
 else :
-    score_dir = 'projects/scores/single_%s_%03d_post_%s'%(edge_type,max_step,test_cond);
+    score_dir = 'scores/single_%s_%03d_post_%s'%(edge_type,max_step,test_cond);
 #end
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
