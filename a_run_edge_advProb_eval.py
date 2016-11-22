@@ -87,7 +87,6 @@ numerator = {}
 denominator = {}
 for s in pos_list : Ap += A[s]; 
 for s in pos_list :
-    print "For S = %d"%(s)
     numerator[s] = A[s].dot(Ap.T)
     denominator[s] = A[s].dot(I.T)
 numeratorP = Ap.dot(Ap.T)
@@ -165,7 +164,7 @@ for reviewer in test_reviewer_lst :
             probability = 0.0
         score_lst.append(probability)
 
-        print 'Rev:%s\tBid:%s\t| S:%s'%(reviewer,bid,str(probability));
+        print 'Rev:%s\tBid:%s\t| S:%s'%(reviewer,b,str(probability));
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
 print '   %.2f seconds elapsed'%(time.clock()-start);
