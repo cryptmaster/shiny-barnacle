@@ -6,6 +6,7 @@ import time
 import sklearn.metrics as metrics
 import util_functions as util
 import sys, os
+import math
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 import plot_tools as plt
 
@@ -93,15 +94,6 @@ numeratorP = Ap.dot(Ap.T)
 denominatorP = Ap.dot(I.T)
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
-print 'Creating normalization for star=5...'
-numerator[5].sort_indices()
-denominator[5].sort_indices()
-Ncoo5 = sp.coo_matrix(numerator[5])
-Dcoo5 = sp.coo_matrix(denominator[5])
-offset5 = np.ones((len(Dcoo5.data),))
-Noff5 = sp.csr_matrix((offset5, (Dcoo5.row, Dcoo5.col)),shape=[B,B])
-Doff5 = sp.csr_matrix(((offset5.dot(2)), (Dcoo5.row, Dcoo5.col)),shape=[B,B])
-print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Creating normalization for star=positive...'
 numeratorP.sort_indices()
@@ -114,49 +106,36 @@ DoffP = sp.csr_matrix(((offsetP.dot(2)), (DcooP.row, DcooP.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Calculating simple probability...'
-Psimple = {}
+simd = []
 for busID in Simple :
     posRate = sum(1 for i in Simple[busID] if i in pos_list)
-    Psimple[busID] = posRate / float(len(Simple[busID]))
+    simd.append(posRate / float(len(Simple[busID]))) 
+Psimple = sp.csc_matrix(simd).T
+Psimple.sort_indices()
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 print 'Calculating advanced probability...'
-Numerator5 = numerator[5] + Noff5
-Denominator5 = denominator[5] + Doff5
-Numerator5.sort_indices()
-Denominator5.sort_indices()
-Dcoo5 = sp.coo_matrix(Denominator5)
-Pdat5 = Numerator5.tocoo().data / Dcoo5.data
-P5 = sp.csr_matrix((Pdat5, (Dcoo5.row, Dcoo5.col)),shape=[B,B])
-
 NumeratorP = numeratorP + NoffP
 DenominatorP = denominatorP + DoffP
-NumeratorP.sort_indices()
-DenominatorP.sort_indices()
+NumeratorP.sort_indices()  
+DenominatorP.sort_indices()  
 DcooP = sp.coo_matrix(DenominatorP)
 PdatP = NumeratorP.tocoo().data / DcooP.data
 Pp = sp.csr_matrix((PdatP, (DcooP.row, DcooP.col)),shape=[B,B])
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
+
 print 'Calculating combined probability...'
-P5combo = {};
-PPcombo = {};
-for busID in Simple :
-    P5combo[busID] = 0
-    PPcombo[busID] = 0
-
-    crossBus = Pp.getrow(busID).tocoo().col
-    for x in crossBus :
-        P5combo[busID] += (P5[busID,x]) - (Psimple[busID])
-        PPcombo[busID] += (Pp[busID,x]) - (Psimple[busID]) 
-
-    if len(crossBus) > 0 :
-        P5combo[busID] = (Psimple[busID]) + (P5combo[busID]/len(crossBus))
-        PPcombo[busID] = (Psimple[busID]) + (PPcombo[busID]/len(crossBus)) 
-    else :
-        P5combo[busID] = (Psimple[busID]) 
-        PPcombo[busID] = (Psimple[busID])
-#    print 'for %d ... P5 = %.2f%%\tPP = %.2f%%'%(busID,P5combo[busID]*100,PPcombo[busID]*100)
+Ppcombo = Pp
+Ppcombo.eliminate_zeros()
+Psim_row = Psimple.T
+Psim_row.eliminate_zeros()
+# Take log of 'simple' prob & subtract that from 'adv' prob
+#Psim_row.data = np.log(Psim_row.data)
+Ppcombo.data -= np.repeat(Psim_row.toarray()[0],np.diff(Ppcombo.indptr))
+# Summation of each col in sparse matrix
+# Add lg('simple' prob) + Sum('adv' prob); save as array
+P = Psim_row.toarray()[0] + np.squeeze(np.array(Ppcombo.sum(1)/(Ppcombo != 0).sum(1))) 
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 
@@ -179,18 +158,16 @@ for reviewer in test_reviewer_lst :
     for (b,i,l) in test_lst :
         bid_lst.append(b)
         label_lst.append(l)
-        probability = PPcombo[b]
-
-        if probability > 0.0001 :
-                probability = float(math.log(probability))
-
-        if b not in PPcombo :
-            score_lst.append(0.0)
+        bid = business_idx[b]
+        if float('-inf') < float(P[bid]) < float('inf') :
+            probability = P[bid]
         else : 
-            score_lst.append(probability)
+            probability = 0.0
+        score_lst.append(probability)
 
-        print 'Bid:%s  | S:%.6f'%(b, probability);
+        print 'Rev:%s\tBid:%s\t| S:%s'%(reviewer,bid,str(probability));
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
+os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
