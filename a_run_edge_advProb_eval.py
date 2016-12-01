@@ -131,10 +131,10 @@ Psim_row = Psimple.T
 Psim_row.eliminate_zeros()
 # Take log of 'simple' prob & subtract that from 'adv' prob
 #Psim_row.data = np.log(Psim_row.data)
-Ppcombo.data -= np.repeat(Psim_row.toarray()[0],np.diff(Ppcombo.indptr))
+#Ppcombo.data -= np.repeat(Psim_row.toarray()[0],np.diff(Ppcombo.indptr))
 # Summation of each col in sparse matrix
 # Add lg('simple' prob) + Sum('adv' prob); save as array
-P = Psim_row.toarray()[0] + np.squeeze(np.array(Ppcombo.sum(1)/(Ppcombo != 0).sum(1))) 
+#P = Psim_row.toarray()[0] + np.squeeze(np.array(Ppcombo.sum(1)/(Ppcombo != 0).sum(1))) 
 print '\t%.2f seconds elapsed'%(time.clock()-start)
 
 
@@ -155,18 +155,38 @@ for reviewer in test_reviewer_lst :
     label_lst = [];
 
     for (b,i,l) in test_lst :
+        raterAvg = 0.0
+        bsum = 0
+        ctpos = 0
+        # Find what rating given to each train from test
+        for (b2,i2,l2) in train_lst :
+            if l2 == 1:
+                lookup = Ppcombo[i,i2]
+                if lookup > 0 :
+                    ctpos += 1
+                    bsum += lookup - Psim_row[0,i]
+                    #print '\t\ttrain_lst[%s]: %d\tlookup:%.2f\tPsim:%.2f\tbsum:%.4f'%(b2,i2,lookup,Psim_row[0,i],bsum)
+        if ctpos > 0:
+            raterAvg = bsum/ctpos
+
         bid_lst.append(b)
         label_lst.append(l)
-        bid = business_idx[b]
-        if float('-inf') < float(P[bid]) < float('inf') :
-            probability = P[bid]
-        else : 
-            probability = 0.0
-        score_lst.append(probability)
+        probability = Psim_row[0,i] + raterAvg
+        # score protection
+        if (float('-inf') < float(probability) < float('inf')) :
+            score_lst.append(probability)  
+        else:
+            score_lst.append(0.0)  
+        print 'Reviewer:%s\tBusiness:%s\t| Rate:%d\t| Bsum:%.2f\t| Score:%s'%(reviewer,b,l,bsum,str(probability));
+	print '\tPsim_row[0,%s]: %.2f\t\t|ctpos: %d\t|bsum: %.2f\t|raterAvg=%.2f'%(i,Psim_row[0,i],ctpos,bsum,raterAvg)
 
-        print 'Rev:%s\tBid:%s\t| S:%s'%(reviewer,b,str(probability));
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, score_lst, label_lst)])+'\n');
     fid.close();
+    print '\n'
+    print '   %.2f seconds elapsed'%(time.clock()-start);
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
+print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
 os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
+print '   %.2f seconds elapsed'%(time.clock()-start);
+

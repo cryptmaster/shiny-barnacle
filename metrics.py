@@ -42,4 +42,6 @@ def computeall(hits, Ptgt = 0.1, Cmiss = 1, Cfa = 1):
     # Compute spearman's rho
     [rho,p] = ss.spearmanr([x[1] for x in hits],[x[0] for x in hits]);
 
-    return ((Npos,Nneg,ap,roc,rho,EER,p,stdEER),errors)
+    rmse = np.sqrt(np.mean(np.array([(x[0]-x[5])**2 for x in hits])));
+
+    return ((Npos,Nneg,ap,roc,rho,EER,rmse,p,stdEER),errors)
