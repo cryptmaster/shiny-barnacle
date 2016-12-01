@@ -58,10 +58,14 @@ def printstats( desc, stats, nusers, resfid, sepline, pool=0 ):
     if len(stats) == 0:
         return
 
+    """
     if nusers > 1:
         if pool == 1:
             desc += " (WP)"
-    
+        else :
+            desc += " (AVG)"
+    """
+
     mean = stats[0]
     var = stats[1]
     npos = stats[2]
@@ -89,7 +93,7 @@ def oracle_calibration(hits):
     y = np.zeros((len(hits),))
 
     for n in range(len(hits)):
-        #x[n] = np.log(hits[n][0]/(1-hits[n][0]+1e-10))
+        #x[n] = np.log((hits[n][0]+1e-10)/(1-hits[n][0]+1e-10))
         x[n] = hits[n][0]
         kx[n][0] = x[n]
         kx[n][1] = x[n]**2
@@ -99,10 +103,11 @@ def oracle_calibration(hits):
 
     model.fit(kx,y)
     ocy = model.predict_proba(kx)
+    new_hits = list(hits);
     for n in range(len(hits)):
-        hits[n] = (ocy[n][1].tolist(),hits[n][1],hits[n][2])
+        new_hits[n] = (ocy[n][1].tolist(),hits[n][1],hits[n][2],hits[n][3])
 
-    return hits
+    return new_hits
 
 
 def usage():
@@ -163,15 +168,25 @@ def main(argv):
     useroraclehits = {}
     userpos = {}
     userneg = {}
+    expected_names = {};
+    stars = {};
 
     # Accumulate trial scores for each user
     for user in userlist:
 
         # Read in eval set labels
-        labelfile = labeldir+'/'+user+'.'+evalset
+        labelfile = labeldir+'/'+user+'.key';
         labels = {}
         userpos[user] = 0
         userneg[user] = 0
+        expected_names[user] = [];
+        stars[user] = {};
+        for l in open(labelfile) :
+            if 'TEST' in l :
+                expected_names[user].append(l.split()[0]);
+                stars[user][l.split()[0]] = int(float(l.split()[1]));
+            #end
+        #end
 
         # Read in score file
         scorefile = scoredir+"/"+user+".scores"
@@ -192,12 +207,16 @@ def main(argv):
             scores.append(score);
             labels.append(label);
         #end
+        if set(names) != set(expected_names[user]) : 
+            print 'ERROR - File mismatch for user %s'%(user);
+            sys.exit();
+        #end
 
         #Get hit list for the user
         hits = []
         for n in range(len(scores)) :
             s = scores[n]+1e-10*np.random.random();
-            newhit = (s,labels[n],names[n])
+            newhit = (s,labels[n],names[n],stars[user][names[n]])
             hits.append(newhit)
 
         # Apply oracle calibration if requested
@@ -210,13 +229,13 @@ def main(argv):
             userwtpos = 1./userpos[user]
             userwtneg = 1./userneg[user]
 
-        userhits[user] = [(h[0],h[1],h[2],userwtpos,userwtneg) for h in hits]        
-        useroraclehits[user] = [(h[0],h[1],h[2],userwtpos,userwtneg) for h in oracle_hits]        
+        userhits[user] = [(h[0],h[1],h[2],userwtpos,userwtneg,h[3]) for h in hits]        
+        useroraclehits[user] = [(h[0],h[1],h[2],userwtpos,userwtneg,h[3]) for h in oracle_hits]        
     #end
 
     # Print the table header
     outstr = "| " + "USER SET".ljust(30) + " |  N  | Npos | Nneg | " + "AP".center(15)+" |";
-    outstr += "AUC".center(15)+" |"+"SPEARMAN".center(15)+" |"+"EER".center(15) + " |"
+    outstr += "AUC".center(15)+" |"+"SPEARMAN".center(15)+" |"+"EER".center(15) + " |"+"RMSE".center(15)+" +"
     dashes = "".ljust(len(outstr),"-")
     print >>resfid, dashes
     print >>resfid, outstr
@@ -229,12 +248,12 @@ def main(argv):
         printstats(u, P, len(usersub), resfid, dashes, pooled)
 
     # Overall results
-    P = perfstats(userlist,userhits,False)
-    printstats("Overall", P, len(userlist), resfid, dashes, False)
-    P = perfstats(userlist,userhits,True)
-    printstats("Overall", P, len(userlist), resfid, dashes, True)
-    P = perfstats(userlist,useroraclehits,True)
-    printstats("Overall", P, len(userlist), resfid, dashes, True)
+    P = perfstats(userlist,userhits,pooled=0)
+    printstats("Overall AVG", P, len(userlist), resfid, dashes, False)
+    P = perfstats(userlist,userhits,pooled=1)
+    printstats("Overall POOL", P, len(userlist), resfid, dashes, True)
+    P = perfstats(userlist,useroraclehits,pooled=1)
+    printstats("Overall POOL+OC", P, len(userlist), resfid, dashes, True)
     if pooled:
         if len(detfile) > 0:
             detfid = open(detfile,'w')
