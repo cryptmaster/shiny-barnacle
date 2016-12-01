@@ -164,14 +164,14 @@ for reviewer in test_reviewer_lst :
                 lookup = Ppcombo[i,i2]
                 if lookup > 0 :
                     ctpos += 1
-                    bsum += lookup - Psim_row[0,i]
+                    bsum += np.log(lookup) - np.log(Psim_row[0,i])
                     #print '\t\ttrain_lst[%s]: %d\tlookup:%.2f\tPsim:%.2f\tbsum:%.4f'%(b2,i2,lookup,Psim_row[0,i],bsum)
         if ctpos > 0:
             raterAvg = bsum/ctpos
 
         bid_lst.append(b)
         label_lst.append(l)
-        probability = Psim_row[0,i] + raterAvg
+        probability = np.log(Psim_row[0,i]) + raterAvg
         # score protection
         if (float('-inf') < float(probability) < float('inf')) :
             score_lst.append(probability)  
