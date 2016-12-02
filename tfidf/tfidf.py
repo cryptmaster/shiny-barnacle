@@ -61,6 +61,7 @@ class TfIdf:
       # Load number of documents.
       line = corpus_file.readline()
       self.num_docs = int(line.strip())
+      #corpus_file.next()
 
       # Reads "term:frequency" from each subsequent line in the file.
       for line in corpus_file:
