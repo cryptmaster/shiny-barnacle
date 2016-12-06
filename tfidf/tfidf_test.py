@@ -92,17 +92,29 @@ def main():
 #    suite = unittest.TestLoader().loadTestsFromTestCase(TfIdfTest)
 #    unittest.TextTestRunner(verbosity=2).run(suite)
 
-    print "Testing in main now"
     my_tfidf = tfidf.TfIdf("tfidf_testcorpus.txt", DEFAULT_IDF = DEFAULT_IDF_UNITTEST)
-    print "for word \'moon\'"
-    my_tfidf.get_idf("moon")
-    my_tfidf.add_input_document("water, moon")
-    print "added another instance of moon"
-    my_tfidf.get_idf("moon")
- 
-    keywords = my_tfidf.get_doc_keywords("the girl said hello over the phone")
+#    print "for word \'moon\'"
+#    my_tfidf.get_idf("moon")
+#    my_tfidf.add_input_document("water, moon")
+#    print "added another instance of moon"
+#    my_tfidf.get_idf("moon")
+
+    tokens = my_tfidf.get_tokens()
+    print tokens
+    keywords = my_tfidf.get_doc_keywords()
+    tokens_set = set(tokens)
+    print 'Words: ' + str(tokens)
+    print 'Num Docs: ' + str(my_tfidf.get_num_docs())
     for word in keywords : 
-        print keywords[word] 
+        print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens.count(word[0]),my_tfidf.get_idf(word[0]),word[1])
+ 
+    keywords = my_tfidf.get_str_keywords("the girl said hello over the phone")
+    tokens = my_tfidf.get_tokens_str("the girl said hello over the phone")
+    tokens_set = set(tokens)
+    print 'Words: ' + str(tokens)
+    print 'Num Docs: ' + str(my_tfidf.get_num_docs())
+    for word in keywords : 
+        print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens.count(word[0]),my_tfidf.get_idf(word[0]),word[1])
     
 
 
