@@ -56,8 +56,10 @@ class TfIdf:
             self.stopwords = [line.strip() for line in stopword_file]
 
 
+########
 #   Break a string into tokens, preserving URL tags as an entire token.
 #   This implementation does not preserve case.  
+########
     def get_tokens(self):
         termLst = []
         for term in self.term_num_docs:
@@ -65,13 +67,17 @@ class TfIdf:
         return termLst
 
 
+########
 #   Break a string into tokens, preserving URL tags as an entire token.
 #   This implementation does not preserve case.  
+########
     def get_tokens_str(self, str):
         return re.findall(r"<a.*?/a>|<[^\>]*>|[\w'@#]+", str.lower())
 
 
+########
 #   Add terms in the specified document to the idf dictionary. 
+########
     def add_input_document(self, input):
         self.num_docs += 1
         words = set(self.get_tokens_str(input))
@@ -81,7 +87,9 @@ class TfIdf:
             else:
                 self.term_num_docs[word] = 1
 
+########
 #   Save the idf dictionary and stopword list to the specified file. 
+########
     def save_corpus_to_file(self, idf_filename, stopword_filename, STOPWORD_PERCENTAGE_THRESHOLD = 0.01):
         output_file = open(idf_filename, "w")
         output_file.write(str(self.num_docs) + "\n")
@@ -96,13 +104,18 @@ class TfIdf:
             stopword_file.write(term + "\n")
 
 
+########
 #   Return the total number of documents in the IDF corpus.
+########
     def get_num_docs(self):
         return self.num_docs
 
 
+########
 #   Retrieve the IDF for the specified term. 
-#   This is computed by taking the logarithm of ( (number of documents in corpus) divided by (number of documents containing this term) ).
+#   This is computed by taking the logarithm of ( (number of documents in corpus) 
+#   divided by (number of documents containing this term) ).
+########
     def get_idf(self, term):
         if term in self.stopwords:
             return 0
@@ -112,8 +125,10 @@ class TfIdf:
         return math.log(float(1 + self.get_num_docs()) / (1 + self.term_num_docs[term]))
 
 
+########
 #   Retrieve terms and corresponding tf-idf for the given doc or string
 #   The returned terms are ordered by decreasing tf-idf.
+########
     def get_str_keywords(self, curr_doc):
         tfidf = {}
         tokens = self.get_tokens_str(curr_doc)
@@ -124,9 +139,10 @@ class TfIdf:
             tfidf[word] = mytf * myidf
         return sorted(tfidf.items(), key=itemgetter(1), reverse=True)
 
-
+########
 #   Retrieve terms and corresponding tf-idf for the default doc
 #   The returned terms are ordered by decreasing tf-idf.
+########
     def get_doc_keywords(self):
         tfidf = {}
         tokens = self.get_tokens()
