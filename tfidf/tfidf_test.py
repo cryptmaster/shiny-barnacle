@@ -102,7 +102,7 @@ def main():
  
     keywords = my_tfidf.get_doc_keywords("the girl said hello over the phone")
     for word in keywords : 
-        print 
+        print keywords[word] 
     
 
 
