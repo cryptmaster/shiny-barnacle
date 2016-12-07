@@ -67,7 +67,6 @@ class TfIdf:
 
 ########
 #   Break a string into tokens, preserving URL tags as an entire token.
-#   This implementation does not preserve case.  
 ########
     def get_tokens_corpus(self, corpus_filename):
         corpus_file = open(corpus_filename, "r")

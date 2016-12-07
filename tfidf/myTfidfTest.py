@@ -21,6 +21,8 @@ print 'Num Words: ' + str(len(tokens_set))
 for word in keywords : 
     print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens.count(word[0]),my_tfidf.get_idf(word[0]),word[1])
 
+my_tfidf.add_input_document("sampleText1.txt")
+
 #keywords = my_tfidf.get_str_keywords("the girl said hello over the phone")
 #tokens = my_tfidf.get_tokens_str("the girl said hello over the phone")
 #tokens_set = set(tokens)
