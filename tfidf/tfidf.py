@@ -45,7 +45,7 @@ class TfIdf:
             self.num_docs = 1
             # Reads each subsequent line in the file and inserts words to the dictionary
             for line in corpus_file:
-                tokens = re.findall(r"<a.*?/a>|<[^\>]*>|[\w'@#]+", line.lower())
+                tokens = self.get_tokens_str(line)
                 for word in tokens :
                     if word in self.term_num_docs:
                         self.term_num_docs[word] += 1
