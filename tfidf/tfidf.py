@@ -37,20 +37,9 @@ class TfIdf:
         self.term_num_docs = {}     # term : num_docs_containing_term
         self.stopwords = []
         self.idf_default = DEFAULT_IDF
+
         if corpus_filename:
-            corpus_file = open(corpus_filename, "r")
-            # Load number of documents.
-            line = corpus_file.readline()
-            #self.num_docs = int(line.strip())
-            self.num_docs = 1
-            # Reads each subsequent line in the file and inserts words to the dictionary
-            for line in corpus_file:
-                tokens = self.get_tokens_str(line)
-                for word in tokens :
-                    if word in self.term_num_docs:
-                        self.term_num_docs[word] += 1
-                    else:
-                        self.term_num_docs[word] = 1
+            self.add_input_document(corpus_filename)
 
         if stopword_filename:
             stopword_file = open(stopword_filename, "r")
@@ -67,10 +56,9 @@ class TfIdf:
 
 
 ########
-#   Break a string into tokens, preserving URL tags as an entire token.
-#   This implementation does not preserve case.  
+#   Returns just the words saved in dictionary 
 ########
-    def get_tokens(self):
+    def get_tokens_keys(self):
         termLst = []
         for term in self.term_num_docs:
             termLst.append(term)
@@ -81,22 +69,34 @@ class TfIdf:
 #   Break a string into tokens, preserving URL tags as an entire token.
 #   This implementation does not preserve case.  
 ########
+    def get_tokens_corpus(self, corpus_filename):
+        corpus_file = open(corpus_filename, "r")
+        line = corpus_file.readline()
+        self.num_docs += 1
+        # Reads each subsequent line in the file and inserts words to the dictionary
+        for line in corpus_file:
+            tokens = self.get_tokens_str(line)
+            for word in tokens :
+                if word in self.term_num_docs:
+                    self.term_num_docs[word] += 1
+                else:
+                    self.term_num_docs[word] = 1
+
+
+########
+#   Takes a corpus file and creates tokens from input words
+#   This implementation does not preserve case.  
+########
     def get_tokens_str(self, str):
         return re.findall(r"<a.*?/a>|<[^\>]*>|[\w'@#]+", str.lower())
 
 
 ########
-#   Add terms in the specified document to the idf dictionary. 
+#   Add terms in the specified corpus to the idf dictionary. 
 ########
-    def add_input_document(self, input):
-        self.num_docs += 1
-        words = set(self.get_tokens_str(input))
-        for word in words:
-            if word in self.term_num_docs:
-                self.term_num_docs[word] += 1
-            else:
-                self.term_num_docs[word] = 1
-        self.rm_stop_words()
+    def add_input_document(self, corpus_filename):
+        self.get_tokens_corpus(corpus_filename)
+
 
 ########
 #   Save the idf dictionary and stopword list to the specified file. 
@@ -156,13 +156,13 @@ class TfIdf:
 ########
     def get_doc_keywords(self):
         tfidf = {}
-        tokens = self.get_tokens()
+        tokens = self.get_tokens_keys()
         tokens_set = set(tokens)
         for word in tokens_set:
             mytf = float(self.term_num_docs[word]) / len(tokens_set)
             myidf = self.get_idf(word)
             tfidf[word] = float(mytf) * myidf
-            print 'word: %s\tmytf: %.3f\tfrequency: %d\tmyidf: %.3f\tmytfidf: %.3f'%(str(word),mytf,self.term_num_docs[word],myidf,(float(mytf)*myidf))
+            #print 'word: %s\tmytf: %.3f\tfrequency: %d\tmyidf: %.3f\tmytfidf: %.3f'%(str(word),mytf,self.term_num_docs[word],myidf,(float(mytf)*myidf))
         return sorted(tfidf.items(), key=itemgetter(1), reverse=False)
 
 
