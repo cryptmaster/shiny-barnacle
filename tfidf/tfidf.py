@@ -41,7 +41,8 @@ class TfIdf:
             corpus_file = open(corpus_filename, "r")
             # Load number of documents.
             line = corpus_file.readline()
-            self.num_docs = int(line.strip())
+            #self.num_docs = int(line.strip())
+            self.num_docs = 1
             # Reads each subsequent line in the file and inserts words to the dictionary
             for line in corpus_file:
                 tokens = re.findall(r"<a.*?/a>|<[^\>]*>|[\w'@#]+", line.lower())
@@ -54,6 +55,15 @@ class TfIdf:
         if stopword_filename:
             stopword_file = open(stopword_filename, "r")
             self.stopwords = [line.strip() for line in stopword_file]
+        self.rm_stop_words()
+
+
+#######
+#   Eliminate stop words from the dictionary
+#######
+    def rm_stop_words(self):
+        for word in self.stopwords :
+            self.term_num_docs.pop(word, None) 
 
 
 ########
@@ -86,6 +96,7 @@ class TfIdf:
                 self.term_num_docs[word] += 1
             else:
                 self.term_num_docs[word] = 1
+        self.rm_stop_words()
 
 ########
 #   Save the idf dictionary and stopword list to the specified file. 
@@ -152,6 +163,6 @@ class TfIdf:
             myidf = self.get_idf(word)
             tfidf[word] = float(mytf) * myidf
             print 'word: %s\tmytf: %.3f\tfrequency: %d\tmyidf: %.3f\tmytfidf: %.3f'%(str(word),mytf,self.term_num_docs[word],myidf,(float(mytf)*myidf))
-        return sorted(tfidf.items(), key=itemgetter(1), reverse=True)
+        return sorted(tfidf.items(), key=itemgetter(1), reverse=False)
 
 

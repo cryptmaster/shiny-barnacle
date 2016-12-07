@@ -7,7 +7,7 @@ DEFAULT_IDF_UNITTEST = 1.0
 
 textFile = sys.argv[1]
 
-my_tfidf = tfidf.TfIdf(textFile, DEFAULT_IDF = DEFAULT_IDF_UNITTEST)
+my_tfidf = tfidf.TfIdf(textFile, "tfidf_teststopwords.txt", DEFAULT_IDF = DEFAULT_IDF_UNITTEST)
 #    my_tfidf.get_idf("moon")
 #    my_tfidf.add_input_document("water, moon")
 #    my_tfidf.get_idf("moon")
