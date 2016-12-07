@@ -58,11 +58,18 @@ class TfIdf:
 ########
 #   Returns just the words saved in dictionary 
 ########
-    def get_tokens_keys(self):
+    def return_tokens_keys(self):
         termLst = []
         for term in self.term_num_docs:
             termLst.append(term)
         return termLst
+
+
+########
+#   Returns the tokens and their weight
+########
+    def return_tokens(self):
+        return self.term_num_docs
 
 
 ########
@@ -74,7 +81,7 @@ class TfIdf:
         self.num_docs += 1
         # Reads each subsequent line in the file and inserts words to the dictionary
         for line in corpus_file:
-            tokens = self.get_tokens_str(line)
+            tokens = self.strip_tokens(line)
             for word in tokens :
                 if word in self.term_num_docs:
                     self.term_num_docs[word] += 1
@@ -86,7 +93,7 @@ class TfIdf:
 #   Takes a corpus file and creates tokens from input words
 #   This implementation does not preserve case.  
 ########
-    def get_tokens_str(self, str):
+    def strip_tokens(self, str):
         return re.findall(r"<a.*?/a>|<[^\>]*>|[\w'@#]+", str.lower())
 
 
@@ -95,6 +102,7 @@ class TfIdf:
 ########
     def add_input_document(self, corpus_filename):
         self.get_tokens_corpus(corpus_filename)
+        self.rm_stop_words()
 
 
 ########
@@ -141,7 +149,7 @@ class TfIdf:
 ########
     def get_str_keywords(self, curr_doc):
         tfidf = {}
-        tokens = self.get_tokens_str(curr_doc)
+        tokens = self.strip_tokens(curr_doc)
         tokens_set = set(tokens)
         for word in tokens_set:
             mytf = float(tokens.count(word)) / len(tokens_set)
@@ -155,7 +163,7 @@ class TfIdf:
 ########
     def get_doc_keywords(self):
         tfidf = {}
-        tokens = self.get_tokens_keys()
+        tokens = self.return_tokens_keys()
         tokens_set = set(tokens)
         for word in tokens_set:
             mytf = float(self.term_num_docs[word]) / len(tokens_set)
