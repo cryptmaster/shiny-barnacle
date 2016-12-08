@@ -32,14 +32,11 @@ class TfIdf:
 #       term: # of documents containing the term
 #   If a stopword file is specified, reads the stopword list from it, in the format of one stopword per line.
 #   The DEFAULT_IDF value is returned when a query term is not found in the idf corpus.
-    def __init__(self, corpus_filename = None, stopword_filename = None, DEFAULT_IDF = 1.5):
+    def __init__(self, stopword_filename = None, DEFAULT_IDF = 1.5):
         self.num_docs = 0
         self.term_num_docs = {}     # term : num_docs_containing_term
         self.stopwords = []
         self.idf_default = DEFAULT_IDF
-
-        if corpus_filename:
-            self.add_input_document(corpus_filename)
 
         if stopword_filename:
             stopword_file = open(stopword_filename, "r")
@@ -54,7 +51,6 @@ class TfIdf:
         for word in self.stopwords :
             self.term_num_docs.pop(word, None) 
 
-
 ########
 #   Returns just the words saved in dictionary 
 ########
@@ -63,10 +59,6 @@ class TfIdf:
         for term in self.term_num_docs:
             termLst.append(term)
         return termLst
-
-
-########
-#   Returns the tokens and their weight
 ########
     def return_tokens(self):
         return self.term_num_docs
@@ -87,6 +79,15 @@ class TfIdf:
                     self.term_num_docs[word] += 1
                 else:
                     self.term_num_docs[word] = 1
+########
+    def get_tokens_str(self, curr_doc):
+        self.num_docs += 1
+        tokens = self.strip_tokens(curr_doc)
+        for word in tokens :
+            if word in self.term_num_docs:
+                self.term_num_docs[word] += 1
+            else:
+                self.term_num_docs[word] = 1
 
 
 ########
@@ -102,6 +103,10 @@ class TfIdf:
 ########
     def add_input_document(self, corpus_filename):
         self.get_tokens_corpus(corpus_filename)
+        self.rm_stop_words()
+########
+    def add_input_str(self, curr_doc):
+        self.get_tokens_str(curr_doc)
         self.rm_stop_words()
 
 
@@ -156,10 +161,6 @@ class TfIdf:
             myidf = self.get_idf(word)
             tfidf[word] = mytf * myidf
         return sorted(tfidf.items(), key=itemgetter(1), reverse=True)
-
-########
-#   Retrieve terms and corresponding tf-idf for the default doc
-#   The returned terms are ordered by decreasing tf-idf.
 ########
     def get_doc_keywords(self):
         tfidf = {}
