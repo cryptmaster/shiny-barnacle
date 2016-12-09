@@ -39,17 +39,11 @@ for uid in reviewer_idx :
         reviewInfo = data['Review Information'][rid];
         bid = reviewInfo['business_id'];
 
-        # maps the text only for each business within dictionary business_revs
-        if bid not in business_revs :
-            business_revs[bid] = {};
-        if rid not in business_revs[bid] :
-            business_revs[bid][rid] = reviewInfo['text'];
-
         # Used for invoking new csr_matrix 
         reviewer.append(reviewer_idx[uid])
         business.append(business_idx[bid])
         review.append(reviewInfo['text'])
-A = sp.csr_matrix((review, (reviewer, business)),shape=[B,R])
+A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
 A.sort_indices()
 B = A.dot(A.T)
 print '    %.2f seconds elapsed'%(time.clock()-start);
