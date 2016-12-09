@@ -31,21 +31,27 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding business review idx'
 business_revs = {}
-reviewers = []
-businesses = []
+reviewer = []
+business = []
+review = []
 for uid in reviewer_idx :
     for rid in data['Reviewer Reviews'][uid] :
         reviewInfo = data['Review Information'][rid];
         bid = reviewInfo['business_id'];
 
+        # maps the text only for each business within dictionary business_revs
         if bid not in business_revs :
             business_revs[bid] = {};
         if rid not in business_revs[bid] :
             business_revs[bid][rid] = reviewInfo['text'];
-      
-        reviewers.append(reviewer_idx[uid])
-        businesses.append(business_idx[bid])
-A = sp.csr_matrix((np.ones((len(reviewers),)),(reviewers,businesses)),shape=[B,R])
+
+        # Used for invoking new csr_matrix 
+        reviewer.append(reviewer_idx[uid])
+        business.append(business_idx[bid])
+        review.append(reviewInfo['text'])
+A = sp.csr_matrix((review, (reviewer, business)),shape=[B,R])
+A.sort_indices()
+B = A.dot(A.T)
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 
@@ -58,9 +64,10 @@ for bid in business_revs:
     for rid in business_revs[bid] :
         reviewinfo = business_revs[bid][rid]
         business_tfidf.add_input_str(reviewinfo)
-        business_doc += reviewinfo
+        business_doc += reviewinfo 	# Each business is a document for total_tfidf
     total_tfidf.add_input_str(business_doc)
 
+# Prints the TF-IDF scores of 10 top for full dataset
 tokens = total_tfidf.return_tokens()
 keywords = total_tfidf.get_doc_keywords()
 for word in keywords[:10] : 
