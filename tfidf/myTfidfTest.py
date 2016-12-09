@@ -6,7 +6,7 @@ import sys, os
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 DEFAULT_IDF_UNITTEST = 1.0
-test_cond = '1_5'
+test_cond = '12_45'
 start = time.clock();
 
 execfile('../load_edge_attr_data.py');
@@ -42,33 +42,27 @@ for uid in reviewer_idx :
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 
-# Test IFIDF on files from terminal
-#my_tfidf = tfidf.TfIdf(textFile, "tfidf_teststopwords.txt", DEFAULT_IDF = DEFAULT_IDF_UNITTEST)
-#tokens = my_tfidf.return_tokens()
-#tokens_set = set(tokens)
-#keywords = my_tfidf.get_doc_keywords()
-#print 'Num Docs: ' + str(my_tfidf.get_num_docs())
-#print 'Num Words: ' + str(len(tokens_set))
-#for word in keywords : 
-#    print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],my_tfidf.get_idf(word[0]),word[1])
-#print '   %.2f seconds elapsed'%(time.clock()-start);
-
-
-
 # Try parsing the review 'text' into the tfidf
+total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
 numReviews = len(review_info)
+counter = 0
 for bid in business_revs:
     # Create a new TF-IDF instance for each business reviewed
-    my_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
+    counter += 1
+    business_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
+    business_doc = ''
     for rid in business_revs[bid] :
         reviewinfo = business_revs[bid][rid]
-        my_tfidf.add_input_str(reviewinfo)
+        business_tfidf.add_input_str(reviewinfo)
+        business_doc += reviewinfo
 
-    # Give relevant info for the TF-IDF corpus used and give the stats
-    print '\tNum Docs: ' + str(my_tfidf.get_num_docs()) + '/' + str(numReviews) + '\tNum Words: ' + str(len(set(my_tfidf.return_tokens())))
-    tokens = my_tfidf.return_tokens()
-    keywords = my_tfidf.get_doc_keywords()
-    for word in keywords[:10] : 
-        print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],my_tfidf.get_idf(word[0]),word[1])
-print '   %.2f seconds elapsed'%(time.clock()-start);
+    total_tfidf.add_input_str(business_doc)
+    # Give relevant info for the TF-IDF corpus used and give the stats 
+    print '\nBusiness: ' + str(bid) + ' (' + str(counter) + '/' + str(len(business_revs)) + ')\tNum Docs: ' + str(business_tfidf.get_num_docs()) + '/' + str(numReviews) + '\tNum Words: ' + str(len(set(business_tfidf.return_tokens())))
+
+tokens = total_tfidf.return_tokens()
+keywords = total_tfidf.get_doc_keywords()
+for word in keywords[:10] : 
+    print "\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],business_tfidf.get_idf(word[0]),word[1])
+print '   %.2f minutes elapsed -- (%.2f sec)'%((time.clock()-start)/60, time.clock()-start);
 

@@ -21,6 +21,13 @@ import math
 import re
 from operator import itemgetter
 
+def stem(word):
+    for suffix in ['ing', 'ly', 'ed', 'ious', 'ies', 'ive', 'es', 's', 'ment']:
+        if word.endswith(suffix):
+            return word[:-len(suffix)]
+    return word
+
+
 # Tf-idf class implementing http://en.wikipedia.org/wiki/Tf-idf.
 # The library constructs an IDF corpus and stopword list either from documents specified by the client, or by reading from input files.  
 # It computes IDF for a specified term based on the corpus, or generates keywords ordered by tf-idf for a specified document.
@@ -50,9 +57,6 @@ class TfIdf:
     def rm_stop_words(self):
         for word in self.stopwords :
             self.term_num_docs.pop(word, None) 
-
-########
-#   Returns just the words saved in dictionary 
 ########
     def return_tokens_keys(self):
         termLst = []
@@ -75,22 +79,21 @@ class TfIdf:
         for line in corpus_file:
             tokens = self.strip_tokens(line)
             for word in tokens :
+                word = stem(word)
                 if word in self.term_num_docs:
                     self.term_num_docs[word] += 1
-                else:
+                elif len(word) > 2:
                     self.term_num_docs[word] = 1
 ########
     def get_tokens_str(self, curr_doc):
-        self.num_docs += 1
         tokens = self.strip_tokens(curr_doc)
+        self.num_docs += 1
         for word in tokens :
+            word = stem(word)
             if word in self.term_num_docs:
                 self.term_num_docs[word] += 1
-            else:
+            elif len(word) > 2:
                 self.term_num_docs[word] = 1
-
-
-########
 #   Takes a corpus file and creates tokens from input words
 #   This implementation does not preserve case.  
 ########
