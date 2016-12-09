@@ -1,3 +1,5 @@
+import scipy.sparse as sp
+import numpy as np
 import math
 import tfidf
 import json
@@ -18,7 +20,6 @@ execfile('../load_edge_attr_data.py');
 #to_save['Reviewed Business List'] = reviewed_bid_lst;
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])
-I = len(data['Review Information'])
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding index lookups...'
@@ -29,7 +30,9 @@ for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding business review idx'
-business_revs = {};
+business_revs = {}
+reviewers = []
+businesses = []
 for uid in reviewer_idx :
     for rid in data['Reviewer Reviews'][uid] :
         reviewInfo = data['Review Information'][rid];
@@ -39,26 +42,24 @@ for uid in reviewer_idx :
             business_revs[bid] = {};
         if rid not in business_revs[bid] :
             business_revs[bid][rid] = reviewInfo['text'];
+      
+        reviewers.append(reviewer_idx[uid])
+        businesses.append(business_idx[bid])
+A = sp.csr_matrix((np.ones((len(reviewers),)),(reviewers,businesses)),shape=[B,R])
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
 
 # Try parsing the review 'text' into the tfidf
 total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
-numReviews = len(review_info)
-counter = 0
 for bid in business_revs:
     # Create a new TF-IDF instance for each business reviewed
-    counter += 1
     business_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
     business_doc = ''
     for rid in business_revs[bid] :
         reviewinfo = business_revs[bid][rid]
         business_tfidf.add_input_str(reviewinfo)
         business_doc += reviewinfo
-
     total_tfidf.add_input_str(business_doc)
-    # Give relevant info for the TF-IDF corpus used and give the stats 
-    print '\nBusiness: ' + str(bid) + ' (' + str(counter) + '/' + str(len(business_revs)) + ')\tNum Docs: ' + str(business_tfidf.get_num_docs()) + '/' + str(numReviews) + '\tNum Words: ' + str(len(set(business_tfidf.return_tokens())))
 
 tokens = total_tfidf.return_tokens()
 keywords = total_tfidf.get_doc_keywords()
