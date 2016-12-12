@@ -25,12 +25,12 @@ print '   %.2f seconds elapsed'%(time.clock()-start);
 print '\nBuilding index lookups...'
 reviewer_idx = {}
 business_idx = {}
+review_idx = {} 
 for n in range(R) : reviewer_idx[data['Train Reviewer List'][n]] = n
 for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding business review idx'
-business_revs = {}
 reviewer = []
 business = []
 review = []
@@ -42,13 +42,16 @@ for uid in reviewer_idx :
         # Used for invoking new csr_matrix 
         reviewer.append(reviewer_idx[uid])
         business.append(business_idx[bid])
-        review.append(reviewInfo['text'])
+        reviewIdx = ''.join([str(reviewer_idx[uid]),str(business_idx[bid])])
+        review_idx[int(reviewIdx)] = reviewInfo['text']
+	#review.append(reviewInfo['text'])
+        review.append(int(reviewIdx))
 A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
 A.sort_indices()
 B = A.dot(A.T)
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-
+business_revs = {}
 # Try parsing the review 'text' into the tfidf
 total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
 for bid in business_revs:
