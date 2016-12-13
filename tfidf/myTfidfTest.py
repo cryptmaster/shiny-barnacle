@@ -39,27 +39,25 @@ for uid in reviewer_idx :
         reviewInfo = data['Review Information'][rid];
         bid = reviewInfo['business_id'];
 
-        # Used for invoking new csr_matrix 
         reviewer.append(reviewer_idx[uid])
         business.append(business_idx[bid])
         reviewIdx = ''.join([str(reviewer_idx[uid]),str(business_idx[bid])])
         review_idx[int(reviewIdx)] = reviewInfo['text']
-	#review.append(reviewInfo['text'])
         review.append(int(reviewIdx))
 A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
 A.sort_indices()
-B = A.dot(A.T)
+At = A.dot(A.T)
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-business_revs = {}
 # Try parsing the review 'text' into the tfidf
 total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
-for bid in business_revs:
+for row in range(B) :
     # Create a new TF-IDF instance for each business reviewed
     business_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
     business_doc = ''
-    for rid in business_revs[bid] :
-        reviewinfo = business_revs[bid][rid]
+    businessReviews = A.getrow(row).tocoo().data
+    for rid in businessReviews :
+        reviewinfo = review_idx[rid]
         business_tfidf.add_input_str(reviewinfo)
         business_doc += reviewinfo 	# Each business is a document for total_tfidf
     total_tfidf.add_input_str(business_doc)
