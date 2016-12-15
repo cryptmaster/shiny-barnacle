@@ -12,14 +12,9 @@ test_cond = '12_45'
 start = time.clock();
 
 execfile('../load_edge_attr_data.py');
-#to_save['Train Reviewer List'] = train_reviewer_lst;
-#to_save['Test Reviewer List'] = test_reviewer_lst;
-#to_save['Business Information'] = bid_info;
-#to_save['Review Information'] = review_info;
-#to_save['Reviewer Reviews'] = reviewer_reviews;
-#to_save['Reviewed Business List'] = reviewed_bid_lst;
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])
+D = len(data['Reviewer Reviews'])
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding index lookups...'
@@ -28,6 +23,7 @@ business_idx = {}
 review_idx = {} 
 for n in range(R) : reviewer_idx[data['Train Reviewer List'][n]] = n
 for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
+#for n in range(D) : review_idx[n] = data['Review Information'][data['Reviewer Reviews'][n]]['text']
 print '   %.2f seconds elapsed'%(time.clock()-start);
 
 print '\nBuilding business review idx'
@@ -36,31 +32,42 @@ business = []
 review = []
 for uid in reviewer_idx :
     for rid in data['Reviewer Reviews'][uid] :
-        reviewInfo = data['Review Information'][rid];
-        bid = reviewInfo['business_id'];
+        reviewInfo = data['Review Information'][rid]
+        bid = reviewInfo['business_id']
 
-        reviewer.append(reviewer_idx[uid])
-        business.append(business_idx[bid])
-        reviewIdx = ''.join([str(reviewer_idx[uid]),str(business_idx[bid])])
-        review_idx[int(reviewIdx)] = reviewInfo['text']
-        review.append(int(reviewIdx))
+        # make unique ID for accessing text reviews between bid x rid
+        reviewCounter = int(''.join([str(business_idx[bid]),'d',str(reviewer_idx[uid])]))
+        reviewtext = reviewInfo['text']
+        if len(reviewtext) > 10 :
+            review_idx[reviewCounter] = reviewInfo['text']
+        # Values for the CSR Matrix
+        reviewer.append(reviewer_idx[uid]) # r
+        business.append(business_idx[bid]) # c
+        review.append(reviewCounter)      # d
+        #print 'c: ' + str(business_idx[bid]) + '\tr: ' + str(reviewer_idx[uid]) + '\td: ' + reviewIdx
 A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
-A.sort_indices()
-At = A.dot(A.T)
+#A.sort_indices()
+#At = A.dot(A.T)
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-# Try parsing the review 'text' into the tfidf
+print '\n Determining TF-IDF across all businesses'
+# Keep a 'total' TF-IDF for all businesses
 total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
-for row in range(B) :
-    # Create a new TF-IDF instance for each business reviewed
+for business in range(B) :
+    # Create a TF-IDF instance for each business reviewed
     business_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
     business_doc = ''
-    businessReviews = A.getrow(row).tocoo().data
-    for rid in businessReviews :
-        reviewinfo = review_idx[rid]
+    businessReviews = A.getrow(business).tocoo().data
+    # Iterate through all reviews given to business
+    for review in businessReviews :
+        # Get review text and save it for TF-IDF
+        reviewinfo = review_idx[review]
+        print str(business) + ' ' + str(review) + ' ' + reviewinfo
         business_tfidf.add_input_str(reviewinfo)
-        business_doc += reviewinfo 	# Each business is a document for total_tfidf
+        business_doc += reviewinfo 
+    # Add all reviews for business as single document
     total_tfidf.add_input_str(business_doc)
+print '    %.2f seconds elapsed'%(time.clock()-start);
 
 # Prints the TF-IDF scores of 10 top for full dataset
 tokens = total_tfidf.return_tokens()
