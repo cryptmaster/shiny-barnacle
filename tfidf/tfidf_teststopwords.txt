@@ -41,6 +41,7 @@ few
 for
 from
 further
+get
 had
 hadn't
 has
@@ -76,7 +77,9 @@ it
 it's
 its
 itself
+just
 let's
+like
 me
 more
 most
@@ -172,3 +175,4 @@ your
 yours
 yourself
 yourselves
+

@@ -20,12 +20,14 @@ __email__ = "niniane at gmail dot com"
 import math
 import re
 from operator import itemgetter
+from nltk.stem import PorterStemmer
 
 def stem(word):
-    for suffix in ['ing', 'ly', 'ed', 'ious', 'ies', 'ive', 'es', 's', 'ment']:
-        if word.endswith(suffix):
-            return word[:-len(suffix)]
-    return word
+#    for suffix in ['ing', 'ly', 'ed', 'ious', 'ies', 'ive', 'es', 's', 'ment']:
+#        if word.endswith(suffix):
+#            return word[:-len(suffix)]
+    stemmer = PorterStemmer()
+    return stemmer.stem(word)
 
 
 # Tf-idf class implementing http://en.wikipedia.org/wiki/Tf-idf.
