@@ -48,23 +48,11 @@ for uid in reviewer_idx :
         reviewer.append(reviewer_idx[uid]) # r
         business.append(business_idx[bid]) # c
         review.append(reviewCounter)      # d
-        #print 'c: ' + str(business_idx[bid]) + '\tr: ' + str(reviewer_idx[uid]) + '\td: ' + reviewIdx
 A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
 A.sort_indices()
 print '    %.2f seconds elapsed'%(time.clock()-start);
 
-#total_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
-#for business in range(B) :
-#    businessReviews = A.getrow(business).tocoo().data
-#    business_doc = ''
-#    for review in businessReviews :
-#        if review in review_idx :
-#            reviewinfo = review_idx[review]
-#            business_doc += reviewinfo 
-#    total_tfidf.add_input_str(business_doc)
 
-
-#############################
 ## Enter data to .scores files
 #############################
 print 'Running evaluation...';
@@ -72,21 +60,26 @@ score_dir = 'scores/TFIDF_%s'%(test_cond);
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
+reviewCount = 0
 for reviewer in test_reviewer_lst :
     [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
     outfile = '%s/%s.scores'%(score_dir,reviewer);
     fid = open(outfile,'w');
-    print "OPENING file %s"%(outfile)
+    reviewCount += 1
+    print "\nOPENING file %s"%(outfile)
 
-    reviewer_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
+    reviewer_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")	# TFIDF instance for each reviewer
     for (b,i,l) in test_lst :
-        business = business_idx[b]
-        train_reviews = A.getrow(business).tocoo().data
+        # Get the list of reviews given to business in test_lst
+        train_reviews = A.getrow(business_idx[b]).tocoo().data
         print '\tFor business ' + str(b) + '\t' + 'Train businesses for test: ' + str(len(train_reviews))
-        fid.write('\tFor business ' + str(b) + '\t' + 'Train businesses for test: ' + str(len(train_reviews)))
-        # Iterate through all reviews given to business
-        train_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")
+        fid.write('\nFor business ' + str(b) + '\t' + 'Train businesses for test: ' + str(len(train_reviews)))
+
+        train_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")	# TFIDF instance for each business
         reviewer_doc = ''
+        # For each review written to business in test_lst
+        #   Push each review's text into a compiled "document"
+        #   then add "doc" as input_str to appropriate TF-IDF instance
         for review in train_reviews :
             train_doc = ''
             if review in review_idx :
@@ -94,21 +87,21 @@ for reviewer in test_reviewer_lst :
                 reviewer_doc += review_idx[review]
             train_tfidf.add_input_str(train_doc)
         reviewer_tfidf.add_input_str(reviewer_doc)
-        # Summary of information for TEST TF-IDF
+
+        # Summary of information for each test businesses' TFIDF
         tokens = train_tfidf.return_tokens()
         keywords = train_tfidf.get_doc_keywords()
-        fid.write("\n\nTest business " + str(b) + "\n")
-        for word in keywords[:10] : 
-            fid.write("\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],train_tfidf.get_idf(word[0]),word[1]))
-            fid.write("\n")
-    # Summary of information for TEST TF-IDF
+        for word in keywords[:5] : 
+            fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],train_tfidf.get_idf(word[0]),word[1]))
+
+    # Summary of information for the reviewer from all TEST review
     tokens = reviewer_tfidf.return_tokens()
     keywords = reviewer_tfidf.get_doc_keywords()
-    fid.write("\n\nTest business " + str(b) + "\n")
+    fid.write("\n\nReviewer" + str(reviewer) + "\twith test reviews of " + str(len(test_lst)) + "\n")
     for word in keywords[:10] : 
-        fid.write("\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],reviewer_tfidf.get_idf(word[0]),word[1]))
-        fid.write("\n")
+        fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],reviewer_tfidf.get_idf(word[0]),word[1]))
+    fid.write("\n")
     fid.close()
-    print '\n'
-    print 'Reviewer %s --- %.2f seconds elapsed'%(str(reviewer), time.clock()-start);
+
+    print 'Reviewer %d out of %d --- \t%.2f seconds elapsed'%(reviewCount, len(test_reviewer_lst), time.clock()-start);
 print '%.2f seconds elapsed'%(time.clock()-start);
