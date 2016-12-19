@@ -22,7 +22,7 @@ import re
 from operator import itemgetter
 from nltk.stem import PorterStemmer
 
-def stem(word):
+def stemWord(word):
 #    for suffix in ['ing', 'ly', 'ed', 'ious', 'ies', 'ive', 'es', 's', 'ment']:
 #        if word.endswith(suffix):
 #            return word[:-len(suffix)]
@@ -81,7 +81,7 @@ class TfIdf:
         for line in corpus_file:
             tokens = self.strip_tokens(line)
             for word in tokens :
-                word = stem(word)
+                word = stemWord(word)
                 if word in self.term_num_docs:
                     self.term_num_docs[word] += 1
                 elif len(word) > 2:
@@ -91,7 +91,7 @@ class TfIdf:
         tokens = self.strip_tokens(curr_doc)
         self.num_docs += 1
         for word in tokens :
-            word = stem(word)
+            word = stemWord(word)
             if word in self.term_num_docs:
                 self.term_num_docs[word] += 1
             elif len(word) > 2:
