@@ -91,6 +91,7 @@ def writeScores() :
         fid.write("\n\nReviewer" + str(reviewer) + "\twith test reviews of " + str(len(test_lst)) + "\n")
         for word in keywords[:10] : 
             fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],reviewer_tfidf.get_idf(word[0]),word[1]))
+        print keywords[:10]
         fid.write("\n")
         fid.close()
     printTime()
