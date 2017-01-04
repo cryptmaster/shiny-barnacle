@@ -39,15 +39,15 @@ def buildIndex() :
         for rid in data['Reviewer Reviews'][uid] :
             reviewInfo = data['Review Information'][rid]
             bid = reviewInfo['business_id']
-            # make unique ID for accessing text reviews between bid x rid
-            reviewCounter = int(''.join([str(business_idx[bid]),str(reviewer_idx[uid])]))
             reviewText = reviewInfo['text']
             if len(reviewText) > 10 :
+		reviewCounter = int(''.join([str(business_idx[bid]),str(reviewer_idx[uid])]))
                 review_idx[reviewCounter] = reviewText
-            # Values for the CSR Matrix
-            reviewer.append(reviewer_idx[uid]) # r
-            business.append(business_idx[bid]) # c
-            review.append(reviewCounter)       # d
+		review.append(reviewCounter)	# d
+            else :
+		review.append(0)       		# d
+            reviewer.append(reviewer_idx[uid]) 	# r
+            business.append(business_idx[bid]) 	# c
     A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
     A.sort_indices()
     printTime()
@@ -67,33 +67,36 @@ def reviewTFIDF(rTFIDF, lst) :
 
 
 # Obtain keywords for reviewer TFIDF and publish to .score files
-def writeScores() :
+def determineScores() :
     print 'Running evaluation...';
     score_dir = 'scores/TFIDF_%s'%(test_cond);
     os.system('mkdir -p %s'%(score_dir));
     os.system('rm %s/*'%(score_dir));
     here = os.path.dirname(os.path.realpath(__file__));
+    revCount = 0
     for reviewer in test_reviewer_lst :
+        revCount += 1
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
         outfile = '%s/%s.scores'%(score_dir,reviewer);
-        fid = open(outfile,'w');
-        print "\nOPENING file %s"%(outfile)
-    
+        
         reviewer_tfidf = tfidf.TfIdf("tfidf_teststopwords.txt")	# TFIDF instance for each reviewer
         for (b,i,l) in test_lst :
             # Get the list of reviews given to business in test_lst
             train_reviews = A.getrow(business_idx[b]).tocoo().data
             reviewer_tfidf = reviewTFIDF(reviewer_tfidf, train_reviews)
-    
-        # Summary of information for the reviewer from all TEST review
-        tokens = reviewer_tfidf.return_tokens()
-        keywords = reviewer_tfidf.get_doc_keywords()
-        fid.write("\n\nReviewer" + str(reviewer) + "\twith test reviews of " + str(len(test_lst)) + "\n")
-        for word in keywords[:10] : 
-            fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],reviewer_tfidf.get_idf(word[0]),word[1]))
-        print keywords[:10]
-        fid.write("\n")
-        fid.close()
+        printScores(reviewer_tfidf, outfile)
+        print "\nWROTE TO FILE %s ---- %d/% COMPLETE"%(outfile, revCount/len(test_reviewer_lst))
+    printTime()
+
+
+def printScores(TFIDF, outfile) :
+    fid = open(outfile,'w');
+    tokens = TFIDF.return_tokens()
+    keywords = TFIDF.get_doc_keywords()
+    for word in keywords[:10] : 
+	fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],TFIDF.get_idf(word[0]),word[1]))
+    fid.write("\n")
+    fid.close()
     printTime()
 
 
@@ -107,7 +110,7 @@ D = len(data['Reviewer Reviews'])
 
 initialize()
 A = buildIndex()
-writeScores()
+determineScores()
 
 
 # EOF
