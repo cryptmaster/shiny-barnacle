@@ -8,6 +8,7 @@ import util_functions as util
 import sys, os
 import math
 import tfidf
+import sklearn.feature_extraction.text as text
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 DEFAULT_IDF_UNITTEST = 1.0
@@ -50,6 +51,22 @@ def buildIndex() :
     A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
     printTime()
     return A
+
+
+def buildVector(reviews) :
+    vectorizer = text.CountVectorizer(input='content',stop_words='english')
+    dtm = vectorizer.fit_transform(reviews).toarray()
+    vocab = np.array(vectorizer.get_feature_names())
+    print dtm.shape
+    print len(vocab)
+
+
+def trainTest() :
+    for reviewer in test_reviewer_lst :
+        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+        for (b,i,l) in test_lst :
+            train_reviews = A.getrow(business_idx[b]).tocoo().data
+            buildVector(train_reviews)
 
 
 # Obtain keywords for reviewer TFIDF and publish to .score files
@@ -99,7 +116,8 @@ D = len(data['Reviewer Reviews'])
 
 initialize()
 A = buildIndex()
-determineScores()
+trainTest()
+#determineScores()
 
 
 # EOF
