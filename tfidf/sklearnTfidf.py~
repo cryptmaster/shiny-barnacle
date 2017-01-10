@@ -6,7 +6,7 @@ import time
 import util_functions as util
 import sys, os
 import math
-
+import operator
 import tfidf
 import sklearn.feature_extraction.text as text
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -33,7 +33,7 @@ def initialize() :
 
 
 # Build sparse matrix 'A' with 'business X reviewer = review' info
-def buildIndex() :
+def initialBuildIndex() :
     print '\nBuilding business review idx'
     reviewer = []
     business = []
@@ -50,6 +50,23 @@ def buildIndex() :
 		review.append(reviewCounter)		# d
                 reviewer.append(reviewer_idx[uid]) 	# r
                 business.append(business_idx[bid]) 	# c
+    with open("reviewList.txt",'wb') as f:
+        pickle.dump(review, f)
+    with open("reviewerList.txt",'wb') as f:
+        pickle.dump(reviewer, f)
+    with open("businessList.txt",'wb') as f:
+        pickle.dump(business, f)
+    A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
+    printTime()
+    return A
+
+def buildIndexfromData() :
+    with open("reviewList.txt",'rb') as f:
+        review = pickle.load(f)
+    with open("reviewerList.txt",'rb') as f:
+        reviewer = pickle.load(f)
+    with open("businessList.txt",'rb') as f:
+        business = pickle.load(f)
     A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
     printTime()
     return A
@@ -68,22 +85,26 @@ def buildVector(reviews) :
         )
     X = vectorizer.fit_transform(corpus)
     idf = vectorizer.idf_
-    print dict(zip(vectorizer.get_feature_names(), idf))
+    vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
+    sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+    for word in sortedDict[:10] :
+        print "%s = %.3f"%(word[0], word[1])
 
 
 def trainTest() :
     for reviewer in test_reviewer_lst :
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        for (b,i,l) in test_lst :
+        for (b,i,l) in test_lst[:5] :
             train_reviews = A.getrow(business_idx[b]).tocoo().data
             reviews = []
             for review in train_reviews :
                 if review in review_idx :
                     reviews.append(review_idx[review])
+            print 'Pulling on business %s'%(b) 
             buildVector(reviews)
             print ''
-            break
         break
+
 
 
 # Obtain keywords for reviewer TFIDF and publish to .score files
@@ -132,7 +153,7 @@ R = len(data['Train Reviewer List'])
 D = len(data['Reviewer Reviews'])
 
 initialize()
-A = buildIndex()
+A = initialBuildIndex() 
 trainTest()
 #determineScores()
 
