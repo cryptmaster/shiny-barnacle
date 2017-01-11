@@ -28,7 +28,7 @@ def initialize() :
     global reviewer_idx
     global business_idx
     global pos_lst
-    global net_lst
+    global neg_lst
     for n in range(R) : reviewer_idx[data['Train Reviewer List'][n]] = n
     for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
 
@@ -86,39 +86,50 @@ def initialBuildIndex() :
     return A
 
 
-def buildVector(corpus) :
+def buildVector(corpus, posDic, negDic) :
 #    vectorizer = text.CountVectorizer(input='content',stop_words='english')
 #    dtm = vectorizer.fit_transform(reviews).toarray()
 #    vocab = np.array(vectorizer.get_feature_names())    print dtm.shape
 #    print len(vocab)
-    vectorizer = TfidfVectorizer(
-        smooth_idf=False,
-        min_df=1, max_df=1.0, max_features=None,
-        stop_words='english', 
-        )
-    X = vectorizer.fit_transform(corpus)
-    idf = vectorizer.idf_
-    vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-    sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-    return sortedDict
-#    for word in sortedDict[:10] :
-#        print "%s = %.3f"%(word[0], word[1])
+    userRating = 0
+    totalRating = 0
+    if len(corpus) > 0 :
+        vectorizer = TfidfVectorizer(
+            smooth_idf=False,
+            min_df=1, max_df=1.0, max_features=None,
+            stop_words='english', 
+            )
+        X = vectorizer.fit_transform(corpus)
+        idf = vectorizer.idf_
+        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
+        sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+
+        for (word,value) in sortedDict :
+            totalRating += value
+            if word in posDic :
+                userRating += value
+            if word in negDic :
+                userRating -= value 
+    userValue = 0
+    if userRating > 0 :
+        userValue = float(userRating)/totalRating
+    return userValue
 
 
 # Create a dictionary of words 
 def buildDictionary(review) :
-    vectorizer = TfidfVectorizer(
-        smooth_idf=False,
-        min_df=1, max_df=1.0, max_features=None,
-        stop_words='english', 
-        )
-    X = vectorizer.fit_transform(review)
-    idf = vectorizer.idf_
-    vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-    vectorDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
     dictionary = []
-    for word in vectorDict[:10] :
-        if word[0] not in dictionary:
+    if len(review) > 0 :
+        vectorizer = TfidfVectorizer(
+            smooth_idf=False,
+            min_df=1, max_df=1.0, max_features=None,
+            stop_words='english', 
+            )
+        X = vectorizer.fit_transform(review)
+        idf = vectorizer.idf_
+        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
+        vectorDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+        for word in vectorDict[:10] :
             dictionary.append(word[0])
     return dictionary 
 
@@ -132,12 +143,26 @@ def buildReviewLst(review_lst) :
     return reviews
 
 
+def remove_duplicates(values) :
+    output = []
+    seen = set()
+    for value in values :
+        # If value has not been encountered yet,
+        # ... add it to both list and set.
+        if value not in seen :
+            output.append(value)
+            seen.add(value)
+    return output
+
+
 # use Train data and Test data for each reviewer
 def trainTest() :
     for reviewer in test_reviewer_lst :
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
         posDic = []
         negDic = []
+        pos_reviews = []
+        neg_reviews = []
         for (b,i,l) in train_lst :
             if l == 1 :
                 pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
@@ -146,14 +171,34 @@ def trainTest() :
             posDic += buildDictionary(pos_reviews)
             negDic += buildDictionary(neg_reviews)
 
+        posDic = remove_duplicates(posDic)
+        negDic = remove_duplicates(negDic)
+        print 'Positive Dictionary: '
+        print posDic
+        print '\n\nNegative Dictionary:'
+        print negDic
+
         for (b,i,l) in test_lst :
             for s in [0,1] :
                 train_reviews = A[s].getrow(business_idx[b]).tocoo().data
-            print 'Pulling on business %s'%(b) 
             reviews = buildReviewLst(train_reviews)
-            reviews = buildVector(reviews)
-            print ''
-        break
+            userRating = float(buildVector(reviews, posDic, negDic))*100
+            if userRating > 1 :
+                label = 1
+            else :
+                label = -1
+
+            confidence = 0
+            if str(label) == str(l) :
+                confidence += 1
+            print 'business:%s \tPrediction:%s \tActual:%s \tRating:%.3f '%(b,str(label),str(l),userRating)
+
+        accuracy = (float(confidence)/len(test_lst))*100
+        print "\n\n\tOVERALL STATS FOR REVIEWER: " + str(reviewer)
+        print "\t\tBusinesses trained: \t" + str(len(train_lst))
+        print "\t\tBusinesses tested: \t" + str(len(test_lst))
+        print "\t\t# Accurate ratings:\t" + str(confidence)
+        print "\t\t\tAccuracy Rating: " + str(accuracy) + "%"
 
 
 
