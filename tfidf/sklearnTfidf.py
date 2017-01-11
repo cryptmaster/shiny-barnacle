@@ -16,7 +16,7 @@ review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 DEFAULT_IDF_UNITTEST = 1.0
 test_cond = '12_45'
 start = time.clock();
-
+edge_type = sys.argv[1]
 
 def printTime() :
     timeElapse = time.clock()-start 
@@ -27,57 +27,70 @@ def initialize() :
     print '\nBuilding index lookups...'
     global reviewer_idx
     global business_idx
+    global pos_lst
+    global net_lst
     for n in range(R) : reviewer_idx[data['Train Reviewer List'][n]] = n
     for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
+
+    if 'posneg' in edge_type :
+        if '3neg' in edge_type :
+            pos_lst = [4,5];
+            neg_lst = [1,2,3];
+        elif '3pos' in edge_type :
+            pos_lst = [3,4,5];
+            neg_lst = [1,2];
+        elif '3out' in edge_type :
+            pos_lst = [4,5];
+            neg_lst = [1,2];
+        elif '234out' in edge_type :
+            pos_lst = [5];
+            neg_lst = [1];
+        else :
+            print 'Unknown edge type '+edge_type;
+            sys.exit();
     printTime()
 
 
 # Build sparse matrix 'A' with 'business X reviewer = review' info
 def initialBuildIndex() :
     print '\nBuilding business review idx'
-    reviewer = []
-    business = []
-    review = []
+    r = {} 	#reviewer 
+    c = {}	#business 
+    d = {}	#review 
+    A = {}
+    for s in [0,1] :
+        r[s] = []
+        c[s] = []
+        d[s] = []
     for uid in reviewer_idx :
         for rid in data['Reviewer Reviews'][uid] :
             reviewInfo = data['Review Information'][rid]
             bid = reviewInfo['business_id']
             reviewText = reviewInfo['text']
+            stars = float(reviewInfo['stars']) 
             # For viable data, limiting to just reviews with more than 10 characters
             if len(reviewText) > 10 :
 		reviewCounter = int(''.join([str(business_idx[bid]),str(reviewer_idx[uid])]))
                 review_idx[reviewCounter] = reviewText
-		review.append(reviewCounter)		# d
-                reviewer.append(reviewer_idx[uid]) 	# r
-                business.append(business_idx[bid]) 	# c
-    with open("reviewList.txt",'wb') as f:
-        pickle.dump(review, f)
-    with open("reviewerList.txt",'wb') as f:
-        pickle.dump(reviewer, f)
-    with open("businessList.txt",'wb') as f:
-        pickle.dump(business, f)
-    A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
-    printTime()
-    return A
-
-def buildIndexfromData() :
-    with open("reviewList.txt",'rb') as f:
-        review = pickle.load(f)
-    with open("reviewerList.txt",'rb') as f:
-        reviewer = pickle.load(f)
-    with open("businessList.txt",'rb') as f:
-        business = pickle.load(f)
-    A = sp.csr_matrix((review, (business, reviewer)),shape=[B,R])
+                if stars in pos_lst :
+		    d[1].append(reviewCounter)		# d
+                    r[1].append(reviewer_idx[uid]) 	# r
+                    c[1].append(business_idx[bid]) 	# c
+                elif stars in neg_lst :
+		    d[0].append(reviewCounter)		# d
+                    r[0].append(reviewer_idx[uid]) 	# r
+                    c[0].append(business_idx[bid]) 	# c
+    A[1] = sp.csr_matrix((d[1],(c[1],r[1])),shape=[B,R])
+    A[0] = sp.csr_matrix((d[0],(c[0],r[0])),shape=[B,R])
     printTime()
     return A
 
 
-def buildVector(reviews) :
+def buildVector(corpus) :
 #    vectorizer = text.CountVectorizer(input='content',stop_words='english')
 #    dtm = vectorizer.fit_transform(reviews).toarray()
 #    vocab = np.array(vectorizer.get_feature_names())    print dtm.shape
 #    print len(vocab)
-    corpus = reviews
     vectorizer = TfidfVectorizer(
         smooth_idf=False,
         min_df=1, max_df=1.0, max_features=None,
@@ -87,21 +100,58 @@ def buildVector(reviews) :
     idf = vectorizer.idf_
     vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
     sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-    for word in sortedDict[:10] :
-        print "%s = %.3f"%(word[0], word[1])
+    return sortedDict
+#    for word in sortedDict[:10] :
+#        print "%s = %.3f"%(word[0], word[1])
 
 
+# Create a dictionary of words 
+def buildDictionary(review) :
+    vectorizer = TfidfVectorizer(
+        smooth_idf=False,
+        min_df=1, max_df=1.0, max_features=None,
+        stop_words='english', 
+        )
+    X = vectorizer.fit_transform(review)
+    idf = vectorizer.idf_
+    vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
+    vectorDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+    dictionary = []
+    for word in vectorDict[:10] :
+        if word[0] not in dictionary:
+            dictionary.append(word[0])
+    return dictionary 
+
+
+# Store all reviews from review list as a list
+def buildReviewLst(review_lst) :
+    reviews = []
+    for review in review_lst:
+	if review in review_idx :
+	    reviews.append(review_idx[review])
+    return reviews
+
+
+# use Train data and Test data for each reviewer
 def trainTest() :
     for reviewer in test_reviewer_lst :
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        for (b,i,l) in test_lst[:5] :
-            train_reviews = A.getrow(business_idx[b]).tocoo().data
-            reviews = []
-            for review in train_reviews :
-                if review in review_idx :
-                    reviews.append(review_idx[review])
+        posDic = []
+        negDic = []
+        for (b,i,l) in train_lst :
+            if l == 1 :
+                pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
+            else :
+                neg_reviews = buildReviewLst(A[0].getrow(business_idx[b]).tocoo().data)
+            posDic += buildDictionary(pos_reviews)
+            negDic += buildDictionary(neg_reviews)
+
+        for (b,i,l) in test_lst :
+            for s in [0,1] :
+                train_reviews = A[s].getrow(business_idx[b]).tocoo().data
             print 'Pulling on business %s'%(b) 
-            buildVector(reviews)
+            reviews = buildReviewLst(train_reviews)
+            reviews = buildVector(reviews)
             print ''
         break
 
@@ -143,7 +193,8 @@ def printScores(TFIDF, outfile) :
     fid.close()
     printTime()
 
-
+pos_lst = []
+neg_lst = []
 reviewer_idx = {}
 business_idx = {}
 review_idx = {} 
