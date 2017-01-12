@@ -159,6 +159,8 @@ def remove_duplicates(values) :
 def trainTest() :
     for reviewer in test_reviewer_lst :
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+        # Build positive and negative dictionary based on 
+        # ..reviewer's past data
         posDic = []
         negDic = []
         pos_reviews = []
@@ -171,13 +173,18 @@ def trainTest() :
             posDic += buildDictionary(pos_reviews)
             negDic += buildDictionary(neg_reviews)
 
+        # Ensure dictionaries are free of duplicates
         posDic = remove_duplicates(posDic)
         negDic = remove_duplicates(negDic)
+        for word in negDic[:] :
+            if word in posDic :
+                posDic.remove(word)
+                negDic.remove(word)
 #        print 'Positive Dictionary: '
 #        print posDic
-#        print '\n\nNegative Dictionary:'
-#        print negDic
 
+        # Determine 'confidence' of predictive label based on presence
+        # ..of business review's words in posDic && negDic
         confidence = 0
         for (b,i,l) in test_lst :
             for s in [0,1] :
@@ -191,15 +198,17 @@ def trainTest() :
 
             if str(label) == str(l) :
                 confidence += 1
+
+        # Provide summary of intel
         accuracy = (float(confidence)/len(test_lst))*100
         print "\n\nOVERALL STATS FOR REVIEWER: " + str(reviewer)
         print "\tPositive Dictionary: \t"+ str(len(posDic))
         print "\tNegative Dictionary: \t"+ str(len(negDic))
-        print "\tBusinesses trained: \t" + str(len(train_lst))
+        print "\n\tBusinesses trained: \t" + str(len(train_lst))
         print "\tBusinesses tested: \t" + str(len(test_lst))
-        print "\t# Accurate ratings:\t%d"%(confidence)
-        print "\t\tAccuracy Rating: %.2f%%"%(accuracy) 
-
+        print "\n\tAccurate predictions:\t%d"%(confidence)
+        print "\tAccuracy Rating: \t%.2f%%"%(accuracy) 
+        printTime()
 
 
 # Obtain keywords for reviewer TFIDF and publish to .score files
@@ -211,21 +220,6 @@ def determineScores() :
     here = os.path.dirname(os.path.realpath(__file__));
     revCount = 0
 
-    for reviewer in test_reviewer_lst :
-        outfile = '%s/%s.scores'%(score_dir,reviewer);
-        revCount += 1
-        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        rTFIDF = tfidf.TfIdf("tfidf_teststopwords.txt")	# TFIDF instance for each reviewer
-        for (b,i,l) in test_lst :
-            train_reviews = A.getrow(business_idx[b]).tocoo().data
-            rDoc = ''
-            for review in train_reviews :
-                if review in review_idx :
-                    rDoc += review_idx[review]
-            rTFIDF.add_input_str(rDoc)
-        printScores(rTFIDF, outfile)
-        print "\nWROTE TO FILE %s ---- %d%% COMPLETE"%(outfile, (float(revCount)/len(test_reviewer_lst))*100)
-    printTime()
 
 
 def printScores(TFIDF, outfile) :
