@@ -173,32 +173,32 @@ def trainTest() :
 
         posDic = remove_duplicates(posDic)
         negDic = remove_duplicates(negDic)
-        print 'Positive Dictionary: '
-        print posDic
-        print '\n\nNegative Dictionary:'
-        print negDic
+#        print 'Positive Dictionary: '
+#        print posDic
+#        print '\n\nNegative Dictionary:'
+#        print negDic
 
+        confidence = 0
         for (b,i,l) in test_lst :
             for s in [0,1] :
                 train_reviews = A[s].getrow(business_idx[b]).tocoo().data
             reviews = buildReviewLst(train_reviews)
             userRating = float(buildVector(reviews, posDic, negDic))*100
-            if userRating > 1 :
+            if userRating > .75 :
                 label = 1
             else :
                 label = -1
 
-            confidence = 0
             if str(label) == str(l) :
                 confidence += 1
-            print 'business:%s \tPrediction:%s \tActual:%s \tRating:%.3f '%(b,str(label),str(l),userRating)
-
         accuracy = (float(confidence)/len(test_lst))*100
-        print "\n\n\tOVERALL STATS FOR REVIEWER: " + str(reviewer)
-        print "\t\tBusinesses trained: \t" + str(len(train_lst))
-        print "\t\tBusinesses tested: \t" + str(len(test_lst))
-        print "\t\t# Accurate ratings:\t" + str(confidence)
-        print "\t\t\tAccuracy Rating: " + str(accuracy) + "%"
+        print "\n\nOVERALL STATS FOR REVIEWER: " + str(reviewer)
+        print "\tPositive Dictionary: \t"+ str(len(posDic))
+        print "\tNegative Dictionary: \t"+ str(len(negDic))
+        print "\tBusinesses trained: \t" + str(len(train_lst))
+        print "\tBusinesses tested: \t" + str(len(test_lst))
+        print "\t# Accurate ratings:\t%d"%(confidence)
+        print "\t\tAccuracy Rating: %.2f%%"%(accuracy) 
 
 
 
