@@ -93,7 +93,7 @@ def initialBuildIndex() :
 
 # Magic
 def buildTFIDF(corpus) :
-    no_topics = 20
+    no_topics = 10
     no_features = 1000
     no_top_words = 10
     if len(corpus) > 0 :
@@ -101,11 +101,15 @@ def buildTFIDF(corpus) :
         tfidf = tfidf_vectorizer.fit_transform(corpus)
         tfidf_feature_names = tfidf_vectorizer.get_feature_names()
         idf = tfidf_vectorizer.idf_
+
         vectorDict = dict(zip(tfidf_vectorizer.get_feature_names(), idf))
         sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-	display_topics(nmf, tfidf_feature_names, no_top_words)
-    return sortedDict
 
+        nmf = NMF(n_components=no_topics, random_state=1, init='nndsvd').fit(tfidf)
+
+	display_topics(nmf, tfidf_feature_names, no_top_words)
+        return sortedDict
+    return 0
 
 # Prints no_top_words for each feature
 def display_topics(model, feature_names, no_top_words):
