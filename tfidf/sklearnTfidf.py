@@ -9,8 +9,10 @@ import math
 import operator
 import tfidf
 import sklearn.feature_extraction.text as text
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.decomposition import NMF
 import sklearn.metrics as metrics
+
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 DEFAULT_IDF_UNITTEST = 1.0
@@ -89,51 +91,53 @@ def initialBuildIndex() :
     return A
 
 
+# Magic
+def buildTFIDF(corpus) :
+    no_topics = 20
+    no_features = 1000
+    no_top_words = 10
+    if len(corpus) > 0 :
+        tfidf_vectorizer = TfidfVectorizer(min_df=2, max_df=0.95, max_features=no_features, stop_words='english')
+        tfidf = tfidf_vectorizer.fit_transform(corpus)
+        tfidf_feature_names = tfidf_vectorizer.get_feature_names()
+        idf = tfidf_vectorizer.idf_
+        vectorDict = dict(zip(tfidf_vectorizer.get_feature_names(), idf))
+        sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+	display_topics(nmf, tfidf_feature_names, no_top_words)
+    return sortedDict
+
+
+# Prints no_top_words for each feature
+def display_topics(model, feature_names, no_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        print "Topic %d:" %(topic_idx)
+        print " ".join([feature_names[i]
+                for i in topic.argsort()[:-no_top_words - 1:-1]])
+
+
+# Creates TFIDF weighted list of verbiage
 def buildVector(corpus, posDic, negDic) :
-#    vectorizer = text.CountVectorizer(input='content',stop_words='english')
-#    dtm = vectorizer.fit_transform(reviews).toarray()
-#    vocab = np.array(vectorizer.get_feature_names())    print dtm.shape
-#    print len(vocab)
+    sortedDict = buildTFIDF(corpus)
+
     userRating = 0
     totalRating = 0
-    if len(corpus) > 0 :
-        vectorizer = TfidfVectorizer(
-            smooth_idf=False,
-            min_df=1, max_df=1.0, max_features=None,
-            stop_words='english', 
-            )
-        X = vectorizer.fit_transform(corpus)
-        idf = vectorizer.idf_
-        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-        sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+    for (word,value) in sortedDict :
+        totalRating += value
+        if word in posDic : userRating += value
+        if word in negDic : userRating -= value 
 
-        for (word,value) in sortedDict :
-            totalRating += value
-            if word in posDic :
-                userRating += value
-            if word in negDic :
-                userRating -= value 
     userValue = 0
-    if userRating > 0 :
-        userValue = float(userRating)/totalRating
+    if userRating > 0 : userValue = float(userRating)/totalRating
     return userValue
 
 
-# Create a dictionary of words 
+# Create a dictionary of words from review
 def buildDictionary(review) :
+    sortedDict = buildTFIDF(review)
+
     dictionary = []
-    if len(review) > 0 :
-        vectorizer = TfidfVectorizer(
-            smooth_idf=False,
-            min_df=1, max_df=1.0, max_features=None,
-            stop_words='english', 
-            )
-        X = vectorizer.fit_transform(review)
-        idf = vectorizer.idf_
-        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-        vectorDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-        for word in vectorDict[:10] :
-            dictionary.append(word[0])
+    for word in sortedDict[:10] : dictionary.append(word[0])
+
     return dictionary 
 
 
@@ -146,6 +150,7 @@ def buildReviewLst(review_lst) :
     return reviews
 
 
+# Eliminates duplicate words from pos & neg dictionaries
 def remove_duplicates(values) :
     output = []
     seen = set()
@@ -212,29 +217,8 @@ def trainTest() :
         printTime()
 
 
-# Obtain keywords for reviewer TFIDF and publish to .score files
-def determineScores() :
-    print 'Running evaluation...';
-    score_dir = 'scores/TFIDF_%s'%(test_cond);
-    os.system('mkdir -p %s'%(score_dir));
-    os.system('rm %s/*'%(score_dir));
-    here = os.path.dirname(os.path.realpath(__file__));
-    revCount = 0
 
-
-# To be used for output scores to '*.score' files
-# ...for further reading/processing
-def printScores(TFIDF, outfile) :
-    fid = open(outfile,'w');
-    tokens = TFIDF.return_tokens()
-    keywords = TFIDF.get_doc_keywords()
-    for word in keywords[:10] : 
-	fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],TFIDF.get_idf(word[0]),word[1]))
-    fid.write("\n")
-    fid.close()
-    printTime()
-
-
+# -----------------MAIN--------------------
 pos_lst = []
 neg_lst = []
 reviewer_idx = {}
@@ -248,7 +232,5 @@ D = len(data['Reviewer Reviews'])
 initialize()
 A = initialBuildIndex() 
 trainTest()
-#determineScores()
-
 
 # EOF
