@@ -18,11 +18,14 @@ test_cond = '12_45'
 start = time.clock();
 edge_type = sys.argv[1]
 
+
+# Print time elapse in seconds && minutes
 def printTime() :
     timeElapse = time.clock()-start 
     print '\t%.2f seconds elapsed -- %.2f minutes'%(timeElapse, timeElapse/60)
 
 
+# Build required indicies for reference
 def initialize() :
     print '\nBuilding index lookups...'
     global reviewer_idx
@@ -58,7 +61,7 @@ def initialBuildIndex() :
     c = {}	#business 
     d = {}	#review 
     A = {}
-    for s in [0,1] :
+    for s in [-1,1] :
         r[s] = []
         c[s] = []
         d[s] = []
@@ -77,11 +80,11 @@ def initialBuildIndex() :
                     r[1].append(reviewer_idx[uid]) 	# r
                     c[1].append(business_idx[bid]) 	# c
                 elif stars in neg_lst :
-		    d[0].append(reviewCounter)		# d
-                    r[0].append(reviewer_idx[uid]) 	# r
-                    c[0].append(business_idx[bid]) 	# c
+		    d[-1].append(reviewCounter)		# d
+                    r[-1].append(reviewer_idx[uid]) 	# r
+                    c[-1].append(business_idx[bid]) 	# c
     A[1] = sp.csr_matrix((d[1],(c[1],r[1])),shape=[B,R])
-    A[0] = sp.csr_matrix((d[0],(c[0],r[0])),shape=[B,R])
+    A[-1] = sp.csr_matrix((d[-1],(c[-1],r[-1])),shape=[B,R])
     printTime()
     return A
 
@@ -169,7 +172,7 @@ def trainTest() :
             if l == 1 :
                 pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
             else :
-                neg_reviews = buildReviewLst(A[0].getrow(business_idx[b]).tocoo().data)
+                neg_reviews = buildReviewLst(A[-1].getrow(business_idx[b]).tocoo().data)
             posDic += buildDictionary(pos_reviews)
             negDic += buildDictionary(neg_reviews)
 
@@ -180,14 +183,12 @@ def trainTest() :
             if word in posDic :
                 posDic.remove(word)
                 negDic.remove(word)
-#        print 'Positive Dictionary: '
-#        print posDic
 
         # Determine 'confidence' of predictive label based on presence
-        # ..of business review's words in posDic && negDic
+        # ...of business review's words in posDic && negDic
         confidence = 0
         for (b,i,l) in test_lst :
-            for s in [0,1] :
+            for s in [-1,1] :
                 train_reviews = A[s].getrow(business_idx[b]).tocoo().data
             reviews = buildReviewLst(train_reviews)
             userRating = float(buildVector(reviews, posDic, negDic))*100
@@ -221,7 +222,8 @@ def determineScores() :
     revCount = 0
 
 
-
+# To be used for output scores to '*.score' files
+# ...for further reading/processing
 def printScores(TFIDF, outfile) :
     fid = open(outfile,'w');
     tokens = TFIDF.return_tokens()
@@ -231,6 +233,7 @@ def printScores(TFIDF, outfile) :
     fid.write("\n")
     fid.close()
     printTime()
+
 
 pos_lst = []
 neg_lst = []
