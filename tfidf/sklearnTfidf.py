@@ -92,56 +92,56 @@ def initialBuildIndex() :
 
 
 # Magic
-def buildTFIDF(corpus) :
-    no_topics = 10
-    no_features = 1000
-    no_top_words = 10
-    if len(corpus) > 0 :
-        tfidf_vectorizer = TfidfVectorizer(min_df=2, max_df=0.95, max_features=no_features, stop_words='english')
-        tfidf = tfidf_vectorizer.fit_transform(corpus)
-        tfidf_feature_names = tfidf_vectorizer.get_feature_names()
-        idf = tfidf_vectorizer.idf_
+def buildTFIDF(corpus, topicModel) :
+    no_features = 100
+    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1,3), max_features=no_features, stop_words='english')
+    tfidf = tfidf_vectorizer.fit_transform(corpus)
+    tfidf_feature_names = tfidf_vectorizer.get_feature_names()
+    idf = tfidf_vectorizer.idf_
 
-        vectorDict = dict(zip(tfidf_vectorizer.get_feature_names(), idf))
-        sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+    vectorDict = dict(zip(tfidf_feature_names, idf))
+    sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
 
-        nmf = NMF(n_components=no_topics, random_state=1, init='nndsvd').fit(tfidf)
+    if topicModel :
+        display_topics(tfidf, tfidf_feature_names)
 
-	display_topics(nmf, tfidf_feature_names, no_top_words)
-        return sortedDict
-    return 0
+    return sortedDict
 
 # Prints no_top_words for each feature
-def display_topics(model, feature_names, no_top_words):
-    for topic_idx, topic in enumerate(model.components_):
-        print "Topic %d:" %(topic_idx)
+def display_topics(model, feature_names) :
+    no_topics = 5
+    no_top_words = 10
+    nmf = NMF(n_components=no_topics, random_state=1).fit(model)
+
+    for topic_idx, topic in enumerate(nmf.components_):
+        print "Topic #%d:" %(topic_idx)
         print " ".join([feature_names[i]
                 for i in topic.argsort()[:-no_top_words - 1:-1]])
+        print ''
 
 
 # Creates TFIDF weighted list of verbiage
 def buildVector(corpus, posDic, negDic) :
-    sortedDict = buildTFIDF(corpus)
-
-    userRating = 0
-    totalRating = 0
-    for (word,value) in sortedDict :
-        totalRating += value
-        if word in posDic : userRating += value
-        if word in negDic : userRating -= value 
-
     userValue = 0
-    if userRating > 0 : userValue = float(userRating)/totalRating
+    if len(corpus) > 0 :
+        sortedDict = buildTFIDF(corpus, False)
+
+        userRating = 0
+        totalRating = 0
+        for (word,value) in sortedDict :
+            totalRating += value
+            if word in posDic : userRating += value
+            if word in negDic : userRating -= value 
+        if userRating > 0 : userValue = float(userRating)/totalRating
     return userValue
 
 
 # Create a dictionary of words from review
 def buildDictionary(review) :
-    sortedDict = buildTFIDF(review)
-
     dictionary = []
-    for word in sortedDict[:10] : dictionary.append(word[0])
-
+    if len(review) > 0 :
+        sortedDict = buildTFIDF(review, False)
+        for word in sortedDict[:10] : dictionary.append(word[0])
     return dictionary 
 
 
@@ -164,6 +164,8 @@ def remove_duplicates(values) :
         if value not in seen :
             output.append(value)
             seen.add(value)
+    output = buildTFIDF(output, True)
+
     return output
 
 
@@ -180,10 +182,12 @@ def trainTest() :
         for (b,i,l) in train_lst :
             if l == 1 :
                 pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
+                print '----------------- Positive ----------------- '
+                posDic += buildDictionary(pos_reviews)
             else :
                 neg_reviews = buildReviewLst(A[-1].getrow(business_idx[b]).tocoo().data)
-            posDic += buildDictionary(pos_reviews)
-            negDic += buildDictionary(neg_reviews)
+                print '----------------- Negative ----------------- '
+                negDic += buildDictionary(neg_reviews)
 
         # Ensure dictionaries are free of duplicates
         posDic = remove_duplicates(posDic)
