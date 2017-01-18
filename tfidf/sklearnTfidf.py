@@ -10,7 +10,8 @@ import operator
 import tfidf
 import sklearn.feature_extraction.text as text
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.model_selection import cross_val_score
+from sklearn.cross_validation import cross_val_score
+from sklearn.grid_search import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import NMF
 from sklearn.pipeline import make_pipeline
@@ -115,7 +116,8 @@ def bagOfWords(X_train, y_train, X_test, y_test) :
     print(feature_names[::20])
 
     scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
-    np.mean(scores)
+    scoreMean = np.mean(scores)
+    print "Mean Score: " + str(scoreMean)
 
     param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
     grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
@@ -124,7 +126,8 @@ def bagOfWords(X_train, y_train, X_test, y_test) :
     print ("Best parameters: ", grid.best_params_)
 
     X_test = vect.transform(X_test)
-    grid.score(X_test, y_test)
+    testScore = grid.score(X_test, y_test)
+    print "Test score: " + str(testScore)
 
 
 # use Train data and Test data for each reviewer
@@ -136,61 +139,25 @@ def trainTest() :
         print '\n\nPROCESSING FOR REVIEWER %s'%(str(reviewer))
         posDic = []
         negDic = []
-        pos_reviews = []
-        neg_reviews = []
         X_train = []
         y_train = []
         X_test = []
         y_test = []
         for (b,i,l) in train_lst :
-            if l == 1 :
-                pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
-                #posDic += buildDictionary(pos_reviews)
-                X_train.append(buildReviewLst(pos_reviews))
-            else :
-                neg_reviews = buildReviewLst(A[-1].getrow(business_idx[b]).tocoo().data)
-                #negDic += buildDictionary(neg_reviews)
-                X_train.append(buildReviewLst(neg_reviews))
+            reviews = buildReviewLine(A[l].getrow(business_idx[b]).tocoo().data)
+            X_train.append(reviews)
             y_train.append(l)
+	print '\tcompleted train_lst import'
 
-        # Ensure dictionaries are free of duplicates
-#        print '----------- Positive Dictionary: Topic Extraction using NMF -----------' 
-#        posDic = remove_duplicates(posDic)
-#        print '----------- Negative Dictionary: Topic Extraction using NMF -----------' 
-#        negDic = remove_duplicates(negDic)
-#        for word in negDic[:] :
-#            if word in posDic :
-#                posDic.remove(word)
-#                negDic.remove(word)
-
-        # Determine 'confidence' of predictive label based on presence
-        # ...of business review's words in posDic && negDic
-        confidence = 0
         for (b,i,l) in test_lst :
+            reviews = []
             for s in [-1,1] :
-                train_reviews = A[s].getrow(business_idx[b]).tocoo().data
-            reviews = buildReviewLst(train_reviews)
+                reviews.append(buildReviewLine(A[s].getrow(business_idx[b]).tocoo().data))
+            reviews = ' '.join(reviews)
             X_test.append(reviews)
             y_test.append(l)
-#            userRating = float(buildVector(reviews, posDic, negDic))*100
-#            if userRating > .75 :
-#                label = 1
-#            else :
-#                label = -1
+        print '\tcompleted test_lst import'
 
-#            if str(label) == str(l) :
-#                confidence += 1
-
-        # Provide summary of intel
-#        accuracy = (float(confidence)/len(test_lst))*100
-#        print "\n\nOVERALL STATS FOR REVIEWER: " + str(reviewer)
-#        print "\tPositive Dictionary: \t"+ str(len(posDic))
-#        print "\tNegative Dictionary: \t"+ str(len(negDic))
-#        print "\n\tBusinesses trained: \t" + str(len(train_lst))
-#        print "\tBusinesses tested: \t" + str(len(test_lst))
-#        print "\n\tAccurate predictions:\t%d"%(confidence)
-#        print "\tAccuracy Rating: \t%.2f%%"%(accuracy) 
-#        print ()
         bagOfWords(X_train, y_train, X_test, y_test)
         printTime()
 
@@ -231,13 +198,20 @@ def buildDictionary(review) :
     return dictionary 
 
 
-# Store all reviews from review list as a list
+# Store all reviews from a review_lst as a list of the string reviews
 def buildReviewLst(review_lst) :
     reviews = []
     for review in review_lst:
 	if review in review_idx :
 	    reviews.append(review_idx[review])
     return reviews
+
+
+# Compact all reviews in a review_lst as a single string
+def buildReviewLine(review_lst) :
+    reviews = buildReviewLst(review_lst)
+    reviewLine = ' '.join(reviews)
+    return reviewLine
 
 
 # Eliminates duplicate words from pos & neg dictionaries
