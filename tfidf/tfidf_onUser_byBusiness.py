@@ -168,7 +168,7 @@ def bagOfWords(X_train, y_train, X_test, y_test) :
 # ..and returned during this instance
 def build_TFIDF(corpus, topicModel) :
     vect = TfidfVectorizer(
-                ngram_range=(1,3),
+                ngram_range=(1,2),
                 stop_words='english'
             )
     tfidf = vect.fit_transform(corpus)
@@ -180,16 +180,6 @@ def build_TFIDF(corpus, topicModel) :
     if topicModel :
         display_topics(tfidf, feature_names)
     return sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-
-
-# Create a dictionary of words from review
-def build_dictionary(review) :
-    dictionary = []
-    if len(review) > 0 :
-        sortedDict = build_TFIDF(review, False)
-        for word in sortedDict :
-            dictionary.append(word[0])
-    return dictionary
 
 
 # Store all reviews from a review_lst as a list of the string reviews
@@ -222,9 +212,9 @@ def display_topics(model, feature_names) :
 
 # Prints scored TF-IDF vectors for test businesses of each user
 def printToFile() :
-    score_dir = 'TFIDFscores'
-    os.system('rm %s/*'%(score_dir));
+    score_dir = '/export/projects/vlyzinski/MiniScale2017/TFIDFscores'
     os.system('mkdir -p %s'%(score_dir));
+    os.system('rm %s/*'%(score_dir));
     here = os.path.dirname(os.path.realpath(__file__));
 
     for reviewer in test_reviewer_lst :
@@ -235,16 +225,22 @@ def printToFile() :
         print '\n\nProcessing reviewer %s'%(str(reviewer))
 
         for (b,i,l) in test_lst :
-            outfile = '%s/%s/%s.scores'%(score_dir,reviewer,b)
+            scoreName = str(reviewer) + '_' + str(b)
+            outfile = '%s/%s.scores'%(score_dir,scoreName)
             fid = open(outfile,'w');
-            reviews = []
-            for s in [-1,1] :
-                reviews.append(build_review_str(A[s].getrow(business_idx[b]).tocoo().data))
-            reviews = ' '.join(reviews)
-            scoredTFIDF = build_TFIDF(reviews, False)
-            print "writing below to file " + str(outfile)
-            print scoredTFIDF
-            fid.write(scoredTFIDF)
+            posRevs = build_review_lst(A[1].getrow(business_idx[b]).tocoo().data) 
+            negRevs = build_review_lst(A[-1].getrow(business_idx[b]).tocoo().data) 
+            reviews = posRevs + negRevs
+            print 'scoring on ' + str(len(reviews)) + ' reviews'
+            if len(reviews) > 0 :
+                scoredTFIDF = build_TFIDF(reviews, False)
+            else :
+                scoredTFIDF = {'NoReviews':0}
+            for word in scoredTFIDF :
+                fid.write(word[0].encode('ascii','ignore'))
+                fid.write('\t')
+                fid.write(str(word[1]))
+                fid.write('\n')
             fid.close();
         printTime() 
 
