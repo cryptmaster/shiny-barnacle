@@ -124,16 +124,13 @@ def evaluate_data() :
             reviews = ' '.join(reviews)
             X_test.append(reviews)
             y_test.append(l)
-            print 'bagOfWords for test business ' + str(b)
-            bagOfWords(X_train, y_train, reviews, l)
+            scoredTFIDF = build_TFIDF(reviews, False)
 
-        print 'bagOfWords for User'
         bagOfWords(X_train, y_train, X_test, y_test)
         printTime()
 
 
-# Bag-of-word example from 'Introduction to Machine Learning with Python' by O'Reily
-def bagOfWords(X_train, y_train, X_test, y_test) :
+def trainData(X_train, y_train) :
     vect = TfidfVectorizer(ngram_range=(1,3), stop_words='english')
     X_train = vect.fit_transform(X_train)
     feature_names = vect.get_feature_names()
@@ -151,6 +148,13 @@ def bagOfWords(X_train, y_train, X_test, y_test) :
     grid.fit(X_train, y_train)
     print ("Best cross-validation score: ", grid.best_score_)
     print ("Best parameters: ", grid.best_params_)
+    
+    return vect, grid
+
+
+# Bag-of-word example from 'Introduction to Machine Learning with Python' by O'Reily
+def bagOfWords(X_train, y_train, X_test, y_test) :
+    vect, grid = trainData(X_train, y_train)
 
     # Transform test documents to document-term matrix
     # Returns the mean accuracy on the given test data and labels
@@ -216,7 +220,33 @@ def display_topics(model, feature_names) :
         print " ,".join([feature_names[i]
                 for i in topic.argsort()[:-no_top_words - 1:-1]])
 
+# Prints scored TF-IDF vectors for test businesses of each user
+def printToFile() :
+    score_dir = 'TFIDFscores'
+    os.system('rm %s/*'%(score_dir));
+    os.system('mkdir -p %s'%(score_dir));
+    here = os.path.dirname(os.path.realpath(__file__));
 
+    for reviewer in test_reviewer_lst :
+        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+        bid_lst = [];
+        score_lst = [];
+        label_lst = [];
+        print '\n\nProcessing reviewer %s'%(str(reviewer))
+
+        for (b,i,l) in test_lst :
+            outfile = '%s/%s/%s.scores'%(score_dir,reviewer,b)
+            fid = open(outfile,'w');
+            reviews = []
+            for s in [-1,1] :
+                reviews.append(build_review_str(A[s].getrow(business_idx[b]).tocoo().data))
+            reviews = ' '.join(reviews)
+            scoredTFIDF = build_TFIDF(reviews, False)
+            print "writing below to file " + str(outfile)
+            print scoredTFIDF
+            fid.write(scoredTFIDF)
+            fid.close();
+        printTime() 
 
 # -----------------MAIN--------------------
 pos_lst = []
@@ -224,7 +254,6 @@ neg_lst = []
 reviewer_idx = {}
 business_idx = {}
 review_idx = {} 
-
 execfile('../load_edge_attr_data.py');
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])
@@ -232,6 +261,5 @@ D = len(data['Reviewer Reviews'])
 
 initialize()
 A = build_index() 
-evaluate_data()
-
+printToFile()
 # EOF
