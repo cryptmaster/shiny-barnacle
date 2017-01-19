@@ -1,3 +1,10 @@
+# This script goes over the Yelp data stored at variable review_file to generate
+# ..TF-IDF values for each document, where a document is defined as all reviews
+# ..given to a business. TF-IDF is determined using feature_extraction from the 
+# ..scikit-learn.org sklearn package (v0.16)
+#
+# Example run instance: 'python tfidf_onUser_byBusiness.py posneg3out'
+
 import json
 import scipy.sparse as sp
 import numpy as np
@@ -9,14 +16,13 @@ import math
 import operator
 import tfidf
 import sklearn.feature_extraction.text as text
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cross_validation import cross_val_score
 from sklearn.grid_search import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import NMF
-from sklearn.pipeline import make_pipeline
-from sklearn import linear_model, neighbors
-import sklearn.metrics as metrics
+from sklearn import linear_model
+
 
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
@@ -62,7 +68,7 @@ def initialize() :
 
 
 # Build sparse matrix 'A' with 'business X reviewer = review' info
-def initialBuildIndex() :
+def build_index() :
     print '\nBuilding business review idx'
     r = {} 	#reviewer 
     c = {}	#business 
@@ -96,82 +102,111 @@ def initialBuildIndex() :
     return A
 
 
-# Bag-of-word example from Introduction to Machine Learning
-# ..with Python by O'Reily
+# For each test reviewer, use the 'train_lst' to score 'test_lst'
+def evaluate_data() :
+    for reviewer in test_reviewer_lst :
+        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+        print '\n\nProcessing reviewer %s'%(str(reviewer))
+
+        X_train = []
+        y_train = []
+        for (b,i,l) in train_lst :
+            reviews = build_review_str(A[l].getrow(business_idx[b]).tocoo().data)
+            X_train.append(reviews)
+            y_train.append(l)
+
+        X_test = []
+        y_test = []
+        for (b,i,l) in test_lst :
+            reviews = []
+            for s in [-1,1] :
+                reviews.append(build_review_str(A[s].getrow(business_idx[b]).tocoo().data))
+            reviews = ' '.join(reviews)
+            X_test.append(reviews)
+            y_test.append(l)
+            print 'bagOfWords for test business ' + str(b)
+            bagOfWords(X_train, y_train, reviews, l)
+
+        print 'bagOfWords for User'
+        bagOfWords(X_train, y_train, X_test, y_test)
+        printTime()
+
+
+# Bag-of-word example from 'Introduction to Machine Learning with Python' by O'Reily
 def bagOfWords(X_train, y_train, X_test, y_test) :
-#    vect = CountVectorizer().fit(X_train)
-#    X_train = vect.transform(X_train)
-#    print(repr(X_train))
     vect = TfidfVectorizer(ngram_range=(1,3), stop_words='english')
     X_train = vect.fit_transform(X_train)
-    print(repr(X_train))
-
     feature_names = vect.get_feature_names()
-    print(len(feature_names))
-    # print first 20 features
-    print(feature_names[:20])
-    # get every 2000th word to get an overview
-    print(feature_names[::2000])
 
+    # Logistic Regression scores determined for training data
     scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
-    scoreMean = np.mean(scores)
-    print "Mean Score: " + str(scoreMean)
+    print "Mean Train Score: " + str(np.mean(scores))
 
+    # Exhaustive search over specified parameter values for an estimator
+    # Fits training data to 'grid' & returns score of best_estimator on the
+    # ..left out data and the parameter setting that gave the best results
+    # ..on the hold out data
     param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
     grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
     grid.fit(X_train, y_train)
     print ("Best cross-validation score: ", grid.best_score_)
     print ("Best parameters: ", grid.best_params_)
 
+    # Transform test documents to document-term matrix
+    # Returns the mean accuracy on the given test data and labels
     X_test = vect.transform(X_test)
-    testScore = grid.score(X_test, y_test)
-    print "Test score: " + str(testScore)
+    print "Test score: " + str(grid.score(X_test, y_test))
 
 
-# use Train data and Test data for each reviewer
-def trainTest() :
-    for reviewer in test_reviewer_lst :
-        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        # Build positive and negative dictionary based on 
-        # ..reviewer's past data
-        print '\n\nPROCESSING FOR REVIEWER %s'%(str(reviewer))
-        X_train = []
-        y_train = []
-        X_test = []
-        y_test = []
-        for (b,i,l) in train_lst :
-            reviews = buildReviewLine(A[l].getrow(business_idx[b]).tocoo().data)
-            X_train.append(reviews)
-            y_train.append(l)
+# TF-IDF is determined for words in the document 'corpus' 
+# Dictionary is returned with word:value sorted in desending order by TF-IDF
+# 'topicModel' is a boolean to determine if the topic model should be determined
+# ..and returned during this instance
+def build_TFIDF(corpus, topicModel) :
+    vect = TfidfVectorizer(
+                ngram_range=(1,3),
+                stop_words='english'
+            )
+    tfidf = vect.fit_transform(corpus)
+    feature_names = vect.get_feature_names()
+    idf = vect.idf_
 
-        for (b,i,l) in test_lst :
-            reviews = []
-            for s in [-1,1] :
-                reviews.append(buildReviewLine(A[s].getrow(business_idx[b]).tocoo().data))
-            reviews = ' '.join(reviews)
-            X_test.append(reviews)
-            y_test.append(l)
+    vectorDict = dict(zip(feature_names, idf))
 
-        bagOfWords(X_train, y_train, X_test, y_test)
-        printTime()
-
-
-# Magic
-def buildTFIDF(corpus, topicModel) :
-    no_features = 100
-    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1,3), max_features=no_features, stop_words='english')
-    tfidf = tfidf_vectorizer.fit_transform(corpus)
-    tfidf_feature_names = tfidf_vectorizer.get_feature_names()
-    idf = tfidf_vectorizer.idf_
-    vectorDict = dict(zip(tfidf_feature_names, idf))
-    sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
     if topicModel :
-        display_topics(tfidf, tfidf_feature_names)
+        display_topics(tfidf, feature_names)
+    return sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
 
-    return sortedDict
+
+# Create a dictionary of words from review
+def build_dictionary(review) :
+    dictionary = []
+    if len(review) > 0 :
+        sortedDict = build_TFIDF(review, False)
+        for word in sortedDict :
+            dictionary.append(word[0])
+    return dictionary
 
 
-# Prints no_top_words for each feature
+# Store all reviews from a review_lst as a list of the string reviews
+def build_review_lst(review_lst) :
+    reviews = []
+    for review in review_lst:
+        if review in review_idx :
+            reviews.append(review_idx[review])
+    return reviews
+
+
+# Compact all reviews in a review_lst as a single string
+# Calls build_review_lst and joins all items in list
+def build_review_str(review_lst) :
+    reviews = build_review_lst(review_lst)
+    reviewLine = ' '.join(reviews)
+    return reviewLine
+
+
+# Determines Topic Model using NMF from TF-IDF ('model') 'feature_names'
+# Prints 'no_top_words' for each of the 'no_topics' topics 
 def display_topics(model, feature_names) :
     no_topics = 5
     no_top_words = 10
@@ -180,46 +215,6 @@ def display_topics(model, feature_names) :
         print "Topic #%d:" %(topic_idx)
         print " ,".join([feature_names[i]
                 for i in topic.argsort()[:-no_top_words - 1:-1]])
-        print ''
-
-
-# Create a dictionary of words from review
-def buildDictionary(review) :
-    dictionary = []
-    if len(review) > 0 :
-        sortedDict = buildTFIDF(review, False)
-        for word in sortedDict : dictionary.append(word[0])
-    return dictionary 
-
-
-# Store all reviews from a review_lst as a list of the string reviews
-def buildReviewLst(review_lst) :
-    reviews = []
-    for review in review_lst:
-	if review in review_idx :
-	    reviews.append(review_idx[review])
-    return reviews
-
-
-# Compact all reviews in a review_lst as a single string
-def buildReviewLine(review_lst) :
-    reviews = buildReviewLst(review_lst)
-    reviewLine = ' '.join(reviews)
-    return reviewLine
-
-
-# Eliminates duplicate words from pos & neg dictionaries
-def remove_duplicates(values) :
-    output = []
-    seen = set()
-    for value in values :
-        # If value has not been encountered yet,
-        # ... add it to both list and set.
-        if value not in seen :
-            output.append(value)
-            seen.add(value)
-    output = buildTFIDF(output, True)
-    return output
 
 
 
@@ -229,13 +224,14 @@ neg_lst = []
 reviewer_idx = {}
 business_idx = {}
 review_idx = {} 
+
 execfile('../load_edge_attr_data.py');
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])
 D = len(data['Reviewer Reviews'])
 
 initialize()
-A = initialBuildIndex() 
-trainTest()
+A = build_index() 
+evaluate_data()
 
 # EOF
