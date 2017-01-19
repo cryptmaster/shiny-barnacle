@@ -9,8 +9,15 @@ import math
 import operator
 import tfidf
 import sklearn.feature_extraction.text as text
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.cross_validation import cross_val_score
+from sklearn.grid_search import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import NMF
+from sklearn.pipeline import make_pipeline
+from sklearn import linear_model, neighbors
 import sklearn.metrics as metrics
+
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 DEFAULT_IDF_UNITTEST = 1.0
@@ -18,11 +25,14 @@ test_cond = '12_45'
 start = time.clock();
 edge_type = sys.argv[1]
 
+
+# Print time elapse in seconds && minutes
 def printTime() :
     timeElapse = time.clock()-start 
     print '\t%.2f seconds elapsed -- %.2f minutes'%(timeElapse, timeElapse/60)
 
 
+# Build required indicies for reference
 def initialize() :
     print '\nBuilding index lookups...'
     global reviewer_idx
@@ -58,7 +68,7 @@ def initialBuildIndex() :
     c = {}	#business 
     d = {}	#review 
     A = {}
-    for s in [0,1] :
+    for s in [-1,1] :
         r[s] = []
         c[s] = []
         d[s] = []
@@ -77,64 +87,112 @@ def initialBuildIndex() :
                     r[1].append(reviewer_idx[uid]) 	# r
                     c[1].append(business_idx[bid]) 	# c
                 elif stars in neg_lst :
-		    d[0].append(reviewCounter)		# d
-                    r[0].append(reviewer_idx[uid]) 	# r
-                    c[0].append(business_idx[bid]) 	# c
+		    d[-1].append(reviewCounter)		# d
+                    r[-1].append(reviewer_idx[uid]) 	# r
+                    c[-1].append(business_idx[bid]) 	# c
     A[1] = sp.csr_matrix((d[1],(c[1],r[1])),shape=[B,R])
-    A[0] = sp.csr_matrix((d[0],(c[0],r[0])),shape=[B,R])
+    A[-1] = sp.csr_matrix((d[-1],(c[-1],r[-1])),shape=[B,R])
     printTime()
     return A
 
 
-def buildVector(corpus, posDic, negDic) :
-#    vectorizer = text.CountVectorizer(input='content',stop_words='english')
-#    dtm = vectorizer.fit_transform(reviews).toarray()
-#    vocab = np.array(vectorizer.get_feature_names())    print dtm.shape
-#    print len(vocab)
-    userRating = 0
-    totalRating = 0
-    if len(corpus) > 0 :
-        vectorizer = TfidfVectorizer(
-            smooth_idf=False,
-            min_df=1, max_df=1.0, max_features=None,
-            stop_words='english', 
-            )
-        X = vectorizer.fit_transform(corpus)
-        idf = vectorizer.idf_
-        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-        sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+# Bag-of-word example from Introduction to Machine Learning
+# ..with Python by O'Reily
+def bagOfWords(X_train, y_train, X_test, y_test) :
+#    vect = CountVectorizer().fit(X_train)
+#    X_train = vect.transform(X_train)
+#    print(repr(X_train))
+    vect = TfidfVectorizer(ngram_range=(1,3), stop_words='english')
+    X_train = vect.fit_transform(X_train)
+    print(repr(X_train))
 
-        for (word,value) in sortedDict :
-            totalRating += value
-            if word in posDic :
-                userRating += value
-            if word in negDic :
-                userRating -= value 
-    userValue = 0
-    if userRating > 0 :
-        userValue = float(userRating)/totalRating
-    return userValue
+    feature_names = vect.get_feature_names()
+    print(len(feature_names))
+    # print first 20 features
+    print(feature_names[:20])
+    # get every 2000th word to get an overview
+    print(feature_names[::2000])
+
+    scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
+    scoreMean = np.mean(scores)
+    print "Mean Score: " + str(scoreMean)
+
+    param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
+    grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
+    grid.fit(X_train, y_train)
+    print ("Best cross-validation score: ", grid.best_score_)
+    print ("Best parameters: ", grid.best_params_)
+
+    X_test = vect.transform(X_test)
+    testScore = grid.score(X_test, y_test)
+    print "Test score: " + str(testScore)
 
 
-# Create a dictionary of words 
+# use Train data and Test data for each reviewer
+def trainTest() :
+    for reviewer in test_reviewer_lst :
+        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
+        # Build positive and negative dictionary based on 
+        # ..reviewer's past data
+        print '\n\nPROCESSING FOR REVIEWER %s'%(str(reviewer))
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
+        for (b,i,l) in train_lst :
+            reviews = buildReviewLine(A[l].getrow(business_idx[b]).tocoo().data)
+            X_train.append(reviews)
+            y_train.append(l)
+
+        for (b,i,l) in test_lst :
+            reviews = []
+            for s in [-1,1] :
+                reviews.append(buildReviewLine(A[s].getrow(business_idx[b]).tocoo().data))
+            reviews = ' '.join(reviews)
+            X_test.append(reviews)
+            y_test.append(l)
+
+        bagOfWords(X_train, y_train, X_test, y_test)
+        printTime()
+
+
+# Magic
+def buildTFIDF(corpus, topicModel) :
+    no_features = 100
+    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1,3), max_features=no_features, stop_words='english')
+    tfidf = tfidf_vectorizer.fit_transform(corpus)
+    tfidf_feature_names = tfidf_vectorizer.get_feature_names()
+    idf = tfidf_vectorizer.idf_
+    vectorDict = dict(zip(tfidf_feature_names, idf))
+    sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+    if topicModel :
+        display_topics(tfidf, tfidf_feature_names)
+
+    return sortedDict
+
+
+# Prints no_top_words for each feature
+def display_topics(model, feature_names) :
+    no_topics = 5
+    no_top_words = 10
+    nmf = NMF(n_components=no_topics, random_state=1).fit(model)
+    for topic_idx, topic in enumerate(nmf.components_):
+        print "Topic #%d:" %(topic_idx)
+        print " ,".join([feature_names[i]
+                for i in topic.argsort()[:-no_top_words - 1:-1]])
+        print ''
+
+
+# Create a dictionary of words from review
 def buildDictionary(review) :
     dictionary = []
     if len(review) > 0 :
-        vectorizer = TfidfVectorizer(
-            smooth_idf=False,
-            min_df=1, max_df=1.0, max_features=None,
-            stop_words='english', 
-            )
-        X = vectorizer.fit_transform(review)
-        idf = vectorizer.idf_
-        vectorDict = dict(zip(vectorizer.get_feature_names(), idf))
-        vectorDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-        for word in vectorDict[:10] :
-            dictionary.append(word[0])
+        sortedDict = buildTFIDF(review, False)
+        for word in sortedDict : dictionary.append(word[0])
     return dictionary 
 
 
-# Store all reviews from review list as a list
+# Store all reviews from a review_lst as a list of the string reviews
 def buildReviewLst(review_lst) :
     reviews = []
     for review in review_lst:
@@ -143,6 +201,14 @@ def buildReviewLst(review_lst) :
     return reviews
 
 
+# Compact all reviews in a review_lst as a single string
+def buildReviewLine(review_lst) :
+    reviews = buildReviewLst(review_lst)
+    reviewLine = ' '.join(reviews)
+    return reviewLine
+
+
+# Eliminates duplicate words from pos & neg dictionaries
 def remove_duplicates(values) :
     output = []
     seen = set()
@@ -152,92 +218,12 @@ def remove_duplicates(values) :
         if value not in seen :
             output.append(value)
             seen.add(value)
+    output = buildTFIDF(output, True)
     return output
 
 
-# use Train data and Test data for each reviewer
-def trainTest() :
-    for reviewer in test_reviewer_lst :
-        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        posDic = []
-        negDic = []
-        pos_reviews = []
-        neg_reviews = []
-        for (b,i,l) in train_lst :
-            if l == 1 :
-                pos_reviews = buildReviewLst(A[1].getrow(business_idx[b]).tocoo().data)
-            else :
-                neg_reviews = buildReviewLst(A[0].getrow(business_idx[b]).tocoo().data)
-            posDic += buildDictionary(pos_reviews)
-            negDic += buildDictionary(neg_reviews)
 
-        posDic = remove_duplicates(posDic)
-        negDic = remove_duplicates(negDic)
-        print 'Positive Dictionary: '
-        print posDic
-        print '\n\nNegative Dictionary:'
-        print negDic
-
-        for (b,i,l) in test_lst :
-            for s in [0,1] :
-                train_reviews = A[s].getrow(business_idx[b]).tocoo().data
-            reviews = buildReviewLst(train_reviews)
-            userRating = float(buildVector(reviews, posDic, negDic))*100
-            if userRating > 1 :
-                label = 1
-            else :
-                label = -1
-
-            confidence = 0
-            if str(label) == str(l) :
-                confidence += 1
-            print 'business:%s \tPrediction:%s \tActual:%s \tRating:%.3f '%(b,str(label),str(l),userRating)
-
-        accuracy = (float(confidence)/len(test_lst))*100
-        print "\n\n\tOVERALL STATS FOR REVIEWER: " + str(reviewer)
-        print "\t\tBusinesses trained: \t" + str(len(train_lst))
-        print "\t\tBusinesses tested: \t" + str(len(test_lst))
-        print "\t\t# Accurate ratings:\t" + str(confidence)
-        print "\t\t\tAccuracy Rating: " + str(accuracy) + "%"
-
-
-
-# Obtain keywords for reviewer TFIDF and publish to .score files
-def determineScores() :
-    print 'Running evaluation...';
-    score_dir = 'scores/TFIDF_%s'%(test_cond);
-    os.system('mkdir -p %s'%(score_dir));
-    os.system('rm %s/*'%(score_dir));
-    here = os.path.dirname(os.path.realpath(__file__));
-    revCount = 0
-
-    for reviewer in test_reviewer_lst :
-        outfile = '%s/%s.scores'%(score_dir,reviewer);
-        revCount += 1
-        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        rTFIDF = tfidf.TfIdf("tfidf_teststopwords.txt")	# TFIDF instance for each reviewer
-        for (b,i,l) in test_lst :
-            train_reviews = A.getrow(business_idx[b]).tocoo().data
-            rDoc = ''
-            for review in train_reviews :
-                if review in review_idx :
-                    rDoc += review_idx[review]
-            rTFIDF.add_input_str(rDoc)
-        printScores(rTFIDF, outfile)
-        print "\nWROTE TO FILE %s ---- %d%% COMPLETE"%(outfile, (float(revCount)/len(test_reviewer_lst))*100)
-    printTime()
-
-
-def printScores(TFIDF, outfile) :
-    fid = open(outfile,'w');
-    tokens = TFIDF.return_tokens()
-    keywords = TFIDF.get_doc_keywords()
-    for word in keywords[:10] : 
-	fid.write("\n\tWORD: %s\tTF:%.0f\tIDF:%.3f\tTF-IDF:%.3f" %(str(word[0]),tokens[word[0]],TFIDF.get_idf(word[0]),word[1]))
-    fid.write("\n")
-    fid.close()
-    printTime()
-
+# -----------------MAIN--------------------
 pos_lst = []
 neg_lst = []
 reviewer_idx = {}
@@ -251,7 +237,5 @@ D = len(data['Reviewer Reviews'])
 initialize()
 A = initialBuildIndex() 
 trainTest()
-#determineScores()
-
 
 # EOF
