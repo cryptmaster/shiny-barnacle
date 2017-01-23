@@ -101,6 +101,7 @@ def build_index() :
     printTime()
     return A
 
+
 # For each test reviewer, use the 'train_lst' to score 'test_lst'
 def evaluate_data() :
     for reviewer in test_reviewer_lst :
@@ -113,6 +114,7 @@ def evaluate_data() :
             reviews = build_review_str(A[l].getrow(business_idx[b]).tocoo().data)
             X_train.append(reviews)
             y_train.append(l)
+        vect, grid = train_data(X_train, y_train)
 
         X_test = []
         y_test = []
@@ -124,12 +126,15 @@ def evaluate_data() :
             X_test.append(reviews)
             y_test.append(l)
             scoredTFIDF = build_TFIDF(reviews, False)
-
-        bagOfWords(X_train, y_train, X_test, y_test)
+        test_data(vect, grid, X_test, y_test)
         printTime()
 
 
-def trainData(X_train, y_train) :
+# Exhaustive search over specified parameter values for an estimator
+# Fits training data to 'grid' & returns score of best_estimator on the
+# ..left out data and the parameter setting that gave the best results
+# ..on the hold out data
+def train_data(X_train, y_train) :
     vect = TfidfVectorizer(ngram_range=(1,3), stop_words='english')
     X_train = vect.fit_transform(X_train)
     feature_names = vect.get_feature_names()
@@ -138,10 +143,6 @@ def trainData(X_train, y_train) :
     scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
     print "Mean Train Score: " + str(np.mean(scores))
 
-    # Exhaustive search over specified parameter values for an estimator
-    # Fits training data to 'grid' & returns score of best_estimator on the
-    # ..left out data and the parameter setting that gave the best results
-    # ..on the hold out data
     param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
     grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
     grid.fit(X_train, y_train)
@@ -151,12 +152,9 @@ def trainData(X_train, y_train) :
     return vect, grid
 
 
-# Bag-of-word example from 'Introduction to Machine Learning with Python' by O'Reily
-def bagOfWords(X_train, y_train, X_test, y_test) :
-    vect, grid = trainData(X_train, y_train)
-
-    # Transform test documents to document-term matrix
-    # Returns the mean accuracy on the given test data and labels
+# Transform test documents to document-term matrix
+# Returns the mean accuracy on the given test data and labels
+def test_data(vect, grid, X_test, y_test) :
     X_test = vect.transform(X_test)
     print "Test score: " + str(grid.score(X_test, y_test))
 
@@ -165,21 +163,26 @@ def bagOfWords(X_train, y_train, X_test, y_test) :
 # Dictionary is returned with word:value sorted in desending order by TF-IDF
 # 'topicModel' is a boolean to determine if the topic model should be determined
 # ..and returned during this instance
-def buildTFIDF(corpus, topicModel) :
+def build_tfidf(corpus, topicModel) :
     no_features = 100
-    tfidf_vectorizer = TfidfVectorizer(ngram_range=(1,3), max_features=no_features, stop_words='english')
+    tfidf_vectorizer = TfidfVectorizer(
+            ngram_range=(1,3), 
+            max_features=no_features, 
+            stop_words='english')
     tfidf = tfidf_vectorizer.fit_transform(corpus)
     tfidf_feature_names = tfidf_vectorizer.get_feature_names()
     idf = tfidf_vectorizer.idf_
+
     vectorDict = dict(zip(tfidf_feature_names, idf))
     sortedDict = sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
+
     if topicModel :
         display_topics(tfidf, tfidf_feature_names)
 
     return sortedDict
 
 
-# Prints no_top_words for each feature
+# Prints no_top_words for each feature using NMF algorithm
 def display_topics(model, feature_names) :
     no_topics = 5
     no_top_words = 10
@@ -189,15 +192,6 @@ def display_topics(model, feature_names) :
         print " ,".join([feature_names[i]
                 for i in topic.argsort()[:-no_top_words - 1:-1]])
         print ''
-
-
-# Create a dictionary of words from review
-def buildDictionary(review) :
-    dictionary = []
-    if len(review) > 0 :
-        sortedDict = buildTFIDF(review, False)
-        for word in sortedDict : dictionary.append(word[0])
-    return dictionary 
 
 
 # Store all reviews from a review_lst as a list of the string reviews
@@ -223,6 +217,7 @@ neg_lst = []
 reviewer_idx = {}
 business_idx = {}
 review_idx = {} 
+
 execfile('../load_edge_attr_data.py');
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])

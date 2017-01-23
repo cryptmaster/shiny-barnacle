@@ -102,71 +102,11 @@ def build_index() :
     return A
 
 
-# For each test reviewer, use the 'train_lst' to score 'test_lst'
-def evaluate_data() :
-    for reviewer in test_reviewer_lst :
-        [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        print '\n\nProcessing reviewer %s'%(str(reviewer))
-
-        X_train = []
-        y_train = []
-        for (b,i,l) in train_lst :
-            reviews = build_review_str(A[l].getrow(business_idx[b]).tocoo().data)
-            X_train.append(reviews)
-            y_train.append(l)
-
-        X_test = []
-        y_test = []
-        for (b,i,l) in test_lst :
-            reviews = []
-            for s in [-1,1] :
-                reviews.append(build_review_str(A[s].getrow(business_idx[b]).tocoo().data))
-            reviews = ' '.join(reviews)
-            X_test.append(reviews)
-            y_test.append(l)
-            scoredTFIDF = build_TFIDF(reviews, False)
-
-        bagOfWords(X_train, y_train, X_test, y_test)
-        printTime()
-
-
-def trainData(X_train, y_train) :
-    vect = TfidfVectorizer(ngram_range=(1,3), stop_words='english')
-    X_train = vect.fit_transform(X_train)
-    feature_names = vect.get_feature_names()
-
-    # Logistic Regression scores determined for training data
-    scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
-    print "Mean Train Score: " + str(np.mean(scores))
-
-    # Exhaustive search over specified parameter values for an estimator
-    # Fits training data to 'grid' & returns score of best_estimator on the
-    # ..left out data and the parameter setting that gave the best results
-    # ..on the hold out data
-    param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
-    grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
-    grid.fit(X_train, y_train)
-    print ("Best cross-validation score: ", grid.best_score_)
-    print ("Best parameters: ", grid.best_params_)
-    
-    return vect, grid
-
-
-# Bag-of-word example from 'Introduction to Machine Learning with Python' by O'Reily
-def bagOfWords(X_train, y_train, X_test, y_test) :
-    vect, grid = trainData(X_train, y_train)
-
-    # Transform test documents to document-term matrix
-    # Returns the mean accuracy on the given test data and labels
-    X_test = vect.transform(X_test)
-    print "Test score: " + str(grid.score(X_test, y_test))
-
-
 # TF-IDF is determined for words in the document 'corpus' 
 # Dictionary is returned with word:value sorted in desending order by TF-IDF
 # 'topicModel' is a boolean to determine if the topic model should be determined
 # ..and returned during this instance
-def build_TFIDF(corpus, topicModel) :
+def build_TFIDF(corpus) :
     vect = TfidfVectorizer(
                 ngram_range=(1,2),
                 stop_words='english'
@@ -177,8 +117,6 @@ def build_TFIDF(corpus, topicModel) :
 
     vectorDict = dict(zip(feature_names, idf))
 
-    if topicModel :
-        display_topics(tfidf, feature_names)
     return sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
 
 
@@ -199,17 +137,6 @@ def build_review_str(review_lst) :
     return reviewLine
 
 
-# Determines Topic Model using NMF from TF-IDF ('model') 'feature_names'
-# Prints 'no_top_words' for each of the 'no_topics' topics 
-def display_topics(model, feature_names) :
-    no_topics = 5
-    no_top_words = 10
-    nmf = NMF(n_components=no_topics, random_state=1).fit(model)
-    for topic_idx, topic in enumerate(nmf.components_):
-        print "Topic #%d:" %(topic_idx)
-        print " ,".join([feature_names[i]
-                for i in topic.argsort()[:-no_top_words - 1:-1]])
-
 # Prints scored TF-IDF vectors for test businesses of each user
 def printToFile() :
     score_dir = '/export/projects/vlyzinski/MiniScale2017/TFIDFscores'
@@ -219,30 +146,29 @@ def printToFile() :
 
     for reviewer in test_reviewer_lst :
         [train_lst,test_lst] = util.read_key('lists_%s/%s.key'%(test_cond,reviewer),business_idx);
-        bid_lst = [];
-        score_lst = [];
-        label_lst = [];
         print '\n\nProcessing reviewer %s'%(str(reviewer))
 
         for (b,i,l) in test_lst :
-            scoreName = str(reviewer) + '_' + str(b)
-            outfile = '%s/%s.scores'%(score_dir,scoreName)
-            fid = open(outfile,'w');
             posRevs = build_review_lst(A[1].getrow(business_idx[b]).tocoo().data) 
             negRevs = build_review_lst(A[-1].getrow(business_idx[b]).tocoo().data) 
             reviews = posRevs + negRevs
             print 'scoring on ' + str(len(reviews)) + ' reviews'
+
             if len(reviews) > 0 :
-                scoredTFIDF = build_TFIDF(reviews, False)
-            else :
-                scoredTFIDF = {'NoReviews':0}
-            for word in scoredTFIDF :
-                fid.write(word[0].encode('ascii','ignore'))
-                fid.write('\t')
-                fid.write(str(word[1]))
-                fid.write('\n')
-            fid.close();
+                outfile = '%s/%s.scores'%(score_dir,str(b))
+                fid = open(outfile,'w')
+                scoredTFIDF = build_TFIDF(reviews)
+                wc = 0
+                for word in scoredTFIDF :
+                    fid.write(str(wc) + '\t')
+                    fid.write(word[0].encode('ascii','ignore'))
+                    fid.write('\t')
+                    fid.write(str(word[1]))
+                    fid.write('\n')
+                    wc += 1
+                fid.close();
         printTime() 
+
 
 # -----------------MAIN--------------------
 pos_lst = []
