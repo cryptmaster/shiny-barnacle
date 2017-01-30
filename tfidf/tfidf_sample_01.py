@@ -177,7 +177,9 @@ for reviewer in test_reviewer_lst :
     print testScore
     fid.write(testScore)
     y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
-    fid.write(classification_report(y_true, y_pred))
+#    testReport = classification_report(y_true, y_pred)
+#    print testReport
+#    fid.write(testReport)
     fid.close()
 
 
