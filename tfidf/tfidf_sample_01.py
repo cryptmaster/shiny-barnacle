@@ -129,7 +129,7 @@ def build_review_str(review_lst) :
 ###################################################################################
 
 
-score_dir = 'scores/TFIDF'
+score_dir = 'scores/test_TFIDF_%s'%(test_cond)
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
@@ -137,7 +137,7 @@ here = os.path.dirname(os.path.realpath(__file__));
 for reviewer in test_reviewer_lst :
     [train_lst,test_lst] = util.read_key('lists_%s/%s.key'
                                           %(test_cond,reviewer),business_idx)
-    outfile = '%s/%s.scores'%(score_dir,reviewer);
+    outfile = '%s/%s.status'%(score_dir,reviewer);
     fid = open(outfile,'w')
 
     print '\n\nProcessing reviewer %s'%(str(reviewer))
@@ -146,24 +146,25 @@ for reviewer in test_reviewer_lst :
     for (b,i,l) in train_lst :
         text_train.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_train.append(l)
-    vect = CountVectorizer().fit(text_train)
-    X_train = vect.transform(text_train)
-#    print "X_train:\n{}".format(repr(X_train))
-    scores = cross_val_score(LogisticRegression(), X_train, y_train, cv=5)
+#    scores = cross_val_score(LogisticRegression(), text_train, y_train, cv=5)
 #    print "Mean cross-validation accuracy: {:.2f}".format(np.mean(scores))
 #    grid = trainData(X_train, y_train)
+    pipe = make_pipeline(TfidfVectorizer(stop_words="english"), LogisticRegression())
+    param_grid = {'logisticregression__C': [0.01, 0.1, 1, 10],
+                  'tfidfvectorizer__ngram_range': [(1,1), (1,2), (1,3)]} 
+    grid = GridSearchCV(pipe, param_grid, cv=5)
+    grid.fit(text_train, y_train)
+    bestScore = "Best cross-validation score: \t{:.2f}".format(grid.best_score_)
+    bestParams = "Best parameters: \n\t{}".format(grid.best_params_)
+    fid.write('\n'+bestScore+'\n'+bestParams)
+    print bestScore
+    print bestParams
+    fid.write("\nGrid scores on development set:")
+    for params, mean_score, scores in grid.grid_scores_:
+        fid.write("\n\t%0.3f (+/-%0.03f) for %r"%(mean_score, scores.std() *2, params))
 
-    param_grid = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
-    grid = GridSearchCV(LogisticRegression(), param_grid, cv=5)
-    grid.fit(X_train, y_train)
-#    print "Best cross-validation score: {:.2f}".format(grid.best_score_)
-#    print "Best parameters: " 
-#    print '\t' + str(grid.best_params_)
-#    print "Grid scores on development set:"
-#    for params, mean_score, scores in grid.grid_scores_:
-#        print "\t%0.3f (+/-%0.03f) for %r"%(mean_score, scores.std() *2, params)
-#    print''
 
+    # Running test set, scoring, print to files
     text_test = []
     y_test = []
     bid_lst = []
@@ -172,17 +173,20 @@ for reviewer in test_reviewer_lst :
         text_test.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_test.append(l)
 
-    X_test = vect.transform(text_test)
-    grid.score(X_test, y_test)
-    #y_true, y_pred = y_test, grid.predict(X_test)
-    #print classification_report(y_true, y_pred)
-    print ''
-    y_true, y_pred = y_test, grid.predict_proba(X_test)[:,1]
+    testScore = '\nGeneralized performance assessment on test: {:.2f}'.format(grid.score(text_test, y_test))
+    print testScore
+    fid.write(testScore)
+    y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
+    fid.write(classification_report(y_true, y_pred))
+    fid.close()
 
+
+    outfile = '%s/%s.scores'%(score_dir,reviewer);
+    fid = open(outfile,'w')
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, y_pred, y_true)])+'\n')
     fid.close()
     printTime() 
 printTime() 
 
-#print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
-#os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
+print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
+os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
