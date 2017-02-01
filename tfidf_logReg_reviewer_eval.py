@@ -102,28 +102,25 @@ os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
 
 for reviewer in test_reviewer_lst :
-    [train_lst,test_lst] = util.read_key('lists_%s/%s.key'
-                                          %(test_cond,reviewer),business_idx)
-    outfile = '%s/%s.status'%(score_dir,reviewer);
-    fid = open(outfile,'w')
+    [train_lst,test_lst] = util.read_key('tasks/lists_%s/%s.key' %(test_cond,reviewer),business_idx)
+    statusfile = '%s/Classification_Report.status'%(score_dir);
+    fid = open(statusfile,'a')
 
     print '\n\nProcessing reviewer %s'%(str(reviewer))
+    fid.write('\n\nProcessing reviewer %s --------------\n'%(str(reviewer)))
     text_train = []
     y_train = []
     for (b,i,l) in train_lst :
         text_train.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_train.append(l)
-#    scores = cross_val_score(LogisticRegression(), text_train, y_train, cv=5)
-#    print "Mean cross-validation accuracy: {:.2f}".format(np.mean(scores))
-#    grid = trainData(X_train, y_train)
     pipe = make_pipeline(TfidfVectorizer(stop_words="english"), LogisticRegression())
-    param_grid = {'logisticregression__C': [0.01, 0.1, 1, 10],
+    param_grid = {'logisticregression__C': [0.01, 1, 10],
                   'tfidfvectorizer__ngram_range': [(1,1), (1,2)]} 
     grid = GridSearchCV(pipe, param_grid, cv=5)
     grid.fit(text_train, y_train)
     bestScore = "Best cross-validation score: \t{:.2f}".format(grid.best_score_)
-    bestParams = "Best parameters: \n\t{}".format(grid.best_params_)
-    fid.write('\n'+bestScore+'\n'+bestParams)
+    bestParams = "Best parameters: \t{}".format(grid.best_params_)
+    fid.write('\n'+bestScore+'\n'+bestParams + '\n')
     print bestScore
     print bestParams
     fid.write("\nGrid scores on development set:")
@@ -140,10 +137,9 @@ for reviewer in test_reviewer_lst :
         text_test.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_test.append(l)
 
-    testScore = '\nGeneralized performance assessment on test: {:.2f}'.format(grid.score(text_test, y_test))
+    testScore = '\n\nGeneralized performance assessment on test: {:.2f}\n'.format(grid.score(text_test, y_test))
     print testScore
     fid.write(testScore)
-    fid.write('\n')
     y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
 #    testReport = classification_report(y_true, y_pred)
 #    print testReport
@@ -159,4 +155,5 @@ for reviewer in test_reviewer_lst :
 printTime() 
 
 print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
-os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
+scorefile = '%s/score_rank_list.results'%(score_dir)
+os.system('python score_rank_list.py -l lists_%s/ -s %s > %s'%(test_cond,score_dir,scorefile));
