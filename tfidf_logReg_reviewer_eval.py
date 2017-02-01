@@ -39,7 +39,7 @@ neg_lst = []
 reviewer_idx = {}
 business_idx = {}
 review_idx = {} 
-execfile('../load_edge_attr_data.py');
+execfile('load_edge_attr_data.py');
 print '\nBuilding index lookups...'
 B = len(data['Reviewed Business List'])
 R = len(data['Train Reviewer List'])
@@ -77,39 +77,6 @@ printTime()
 
 ###################################################################################
 
-def trainData(X_train, y_train) :
-    pipe = make_pipeline(TfidfVectorizer(), LogisticRegression())
-    param_grid = {'logisticregression_C': [0.001, 0.01, 0.1, 1, 10, 100],
-                  'tfidfvectorizer_ngram_range': [(1,1), (1,2), (1,3)]}
-#    grid = GridSearchCV(pipe, param_grid, cv=5)
-#    grid.fit(X_train, y_train)
-#    print "Best cross-validation score: {:.2f}".format(grid.best_score_)
-#    print "Best parameters:\n{}".format(grid.best_params_)
-    return grid
-
-
-def testData(X_test, y_test, grid) :
-    print "{:.2f}".format(grid.score(X_test, y_test))
-
-
-# TF-IDF is determined for words in the document 'corpus' 
-# Dictionary is returned with word:value sorted in desending order by TF-IDF
-# 'topicModel' is a boolean to determine if the topic model should be determined
-# ..and returned during this instance
-def build_TFIDF(corpus) :
-    vect = TfidfVectorizer(
-                ngram_range=(1,2),
-                stop_words='english'
-            )
-    tfidf = vect.fit_transform(corpus)
-    feature_names = vect.get_feature_names()
-    idf = vect.idf_
-
-    vectorDict = dict(zip(feature_names, idf))
-
-    return sorted(vectorDict.items(), key=operator.itemgetter(1), reverse=True)
-
-
 # Store all reviews from a review_lst as a list of the string reviews
 def build_review_lst(review_lst) :
     reviews = []
@@ -128,35 +95,32 @@ def build_review_str(review_lst) :
 
 ###################################################################################
 
-
-score_dir = 'scores/test_TFIDF_%s'%(test_cond)
+datetime = time.strftime("%Y%m%d_%H%M")
+score_dir = 'projects/scores/TFIDF_%s_%s'%(test_cond,datetime)
 os.system('mkdir -p %s'%(score_dir));
 os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
 
 for reviewer in test_reviewer_lst :
-    [train_lst,test_lst] = util.read_key('lists_%s/%s.key'
-                                          %(test_cond,reviewer),business_idx)
-    outfile = '%s/%s.status'%(score_dir,reviewer);
-    fid = open(outfile,'w')
+    [train_lst,test_lst] = util.read_key('tasks/lists_%s/%s.key' %(test_cond,reviewer),business_idx)
+    statusfile = '%s/Classification_Report.status'%(score_dir);
+    fid = open(statusfile,'a')
 
     print '\n\nProcessing reviewer %s'%(str(reviewer))
+    fid.write('\n\nProcessing reviewer %s --------------\n'%(str(reviewer)))
     text_train = []
     y_train = []
     for (b,i,l) in train_lst :
         text_train.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_train.append(l)
-#    scores = cross_val_score(LogisticRegression(), text_train, y_train, cv=5)
-#    print "Mean cross-validation accuracy: {:.2f}".format(np.mean(scores))
-#    grid = trainData(X_train, y_train)
     pipe = make_pipeline(TfidfVectorizer(stop_words="english"), LogisticRegression())
-    param_grid = {'logisticregression__C': [0.01, 0.1, 1, 10],
-                  'tfidfvectorizer__ngram_range': [(1,1), (1,2), (1,3)]} 
+    param_grid = {'logisticregression__C': [0.01, 1, 10],
+                  'tfidfvectorizer__ngram_range': [(1,1), (1,2)]} 
     grid = GridSearchCV(pipe, param_grid, cv=5)
     grid.fit(text_train, y_train)
     bestScore = "Best cross-validation score: \t{:.2f}".format(grid.best_score_)
-    bestParams = "Best parameters: \n\t{}".format(grid.best_params_)
-    fid.write('\n'+bestScore+'\n'+bestParams)
+    bestParams = "Best parameters: \t{}".format(grid.best_params_)
+    fid.write('\n'+bestScore+'\n'+bestParams + '\n')
     print bestScore
     print bestParams
     fid.write("\nGrid scores on development set:")
@@ -173,7 +137,7 @@ for reviewer in test_reviewer_lst :
         text_test.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
         y_test.append(l)
 
-    testScore = '\nGeneralized performance assessment on test: {:.2f}'.format(grid.score(text_test, y_test))
+    testScore = '\n\nGeneralized performance assessment on test: {:.2f}\n'.format(grid.score(text_test, y_test))
     print testScore
     fid.write(testScore)
     y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
@@ -191,4 +155,5 @@ for reviewer in test_reviewer_lst :
 printTime() 
 
 print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
-os.system('python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir));
+scorefile = '%s/score_rank_list.results'%(score_dir)
+os.system('python score_rank_list.py -l lists_%s/ -s %s > %s'%(test_cond,score_dir,scorefile));
