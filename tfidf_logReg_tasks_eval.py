@@ -15,143 +15,149 @@ import numpy as np
 import pickle
 import time
 import util_functions as util
-import sys, os
+import sys, glob, os
 import math
 import operator
 
-from sklearn import linear_model
-from sklearn.cross_validation import cross_val_score
-from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.grid_search import GridSearchCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
 from sklearn.pipeline import make_pipeline
 
 
 sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
+business_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_business.json';
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
-DEFAULT_IDF_UNITTEST = 1.0
-test_cond = '12_45'
 start = time.clock();
-reviewer_idx = {}
-business_idx = {}
-review_idx = {} 
-execfile('load_edge_attr_data.py');
-print '\nBuilding index lookups...'
-B = len(data['Reviewed Business List'])
-R = len(data['Train Reviewer List'])
-D = len(data['Reviewer Reviews'])
-for n in range(R) : reviewer_idx[data['Train Reviewer List'][n]] = n
-for n in range(B) : business_idx[data['Reviewed Business List'][n]] = n
-
+test_cond = 'categories'
 
 # Print time elapse in seconds && minutes
 def printTime() :
     timeElapse = time.clock()-start 
     print '\t%.2f seconds elapsed -- %.2f minutes'%(timeElapse, timeElapse/60)
+
+
+print 'Loading reviews...'
+review_str = [x for x in open(review_file).read().split('\n') if len(x)>0];
+review_txt = {}
+rid_txt = {}
+for l in review_str :
+    obj = json.loads(l);
+    business = obj['business_id']
+    rid = obj['review_id']
+    if business not in review_txt :
+        review_txt[business] = []
+    review_txt[business].append(obj['text'])
+    rid_txt[rid] = obj['text']
 printTime()
 
 
-print '\nBuilding business review idx'
-r = [] 	#reviewer 
-c = []	#business 
-d = []	#review 
-for uid in reviewer_idx :
-    for rid in data['Reviewer Reviews'][uid] :
-        reviewInfo = data['Review Information'][rid]
-        bid = reviewInfo['business_id']
-        reviewText = reviewInfo['text']
-        stars = float(reviewInfo['stars']) 
-    	reviewCounter = int(''.join([str(business_idx[bid]),str(reviewer_idx[uid])]))
-
-        review_idx[reviewCounter] = reviewText
-    	d.append(reviewCounter)		# d
-        r.append(reviewer_idx[uid]) 	# r
-        c.append(business_idx[bid]) 	# c
-A = sp.csr_matrix((d,(c,r)),shape=[B,R])
+print 'Generating train/test lists for %s task...'%(test_cond)
+task_dir = "tasks/%s"%(test_cond)
+os.chdir(task_dir)
+train_lst = {}
+test_lst = {}
+for file in glob.glob("*.train"):
+    base = os.path.basename(file)
+    basename = os.path.splitext(base)[0]
+    test_file = '%s.test'%(basename)
+    lst = []
+    for line in open(file) :
+        line = line.rstrip('\n')
+        p = line.split(',')
+        lst.append([p[0],p[1]])
+    train_lst[basename] = lst
+    lst = []
+    for line in open(test_file) :
+        line = line.rstrip('\n')
+        p = line.split(',')
+        lst.append([p[0],p[1]])
+    test_lst[basename] = lst
 printTime()
 
 
-###################################################################################
-
-# Store all reviews from a review_lst as a list of the string reviews
-def build_review_lst(review_lst) :
-    reviews = []
-    for review in review_lst:
-        if review in review_idx :
-            reviews.append(review_idx[review])
-    return reviews
-
-
-# Compact all reviews in a review_lst as a single string
-# Calls build_review_lst and joins all items in list
-def build_review_str(review_lst) :
-    reviews = build_review_lst(review_lst)
-    reviewLine = ' '.join(reviews)
-    return reviewLine
-
-###################################################################################
-
+print 'Determining probability scores'
+os.chdir(sys.path[0])
 datetime = time.strftime("%Y%m%d_%H%M")
 score_dir = 'projects/scores/TFIDF_%s_%s'%(test_cond,datetime)
 os.system('mkdir -p %s'%(score_dir));
-os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
-
-for reviewer in test_reviewer_lst :
-    [train_lst,test_lst] = util.read_key('tasks/lists_%s/%s.key' %(test_cond,reviewer),business_idx)
+for item in test_lst :
     statusfile = '%s/Classification_Report.status'%(score_dir);
     fid = open(statusfile,'a')
 
-    print '\n\nProcessing reviewer %s'%(str(reviewer))
-    fid.write('\n\nProcessing reviewer %s --------------\n'%(str(reviewer)))
+    processingStatus = ('\n\nProcessing %s %s --------------\n'%(test_cond, item))
+    print processingStatus
+    fid.write(processingStatus)
     text_train = []
     y_train = []
-    for (b,i,l) in train_lst :
-        text_train.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
-        y_train.append(l)
+    for (b,l) in train_lst[item] :
+        if b in review_txt :
+            text_train.append(''.join(review_txt[b]))
+            y_train.append(l)
+        else :
+            print b + ' not in review_txt'
+    text_test = []
+    y_test = []
+    bid_lst = []
+    missing = []
+    for (b,l) in test_lst[item] :
+        if b in review_txt :
+            bid_lst.append(b)
+            text_test.append(''.join(review_txt[b]))
+            y_test.append(l)
+        else :
+            missing.append(b)
+
+    # Making conversion of negatives represented from 0 to -1 for sorting
+    y_train = map(int, y_train)
+    y_test = map(int, y_test)
+    y_train = [x if x==1 else -1 for x in y_train]
+    y_test = [x if x==1 else -1 for x in y_test]
+
+    print 'FYI - test has %d found and %d missing from the total %d'%(len(y_test), len(missing), len(test_lst[item]))
+    # Build over train
+    print '\tBuilding over train...'
     pipe = make_pipeline(TfidfVectorizer(stop_words="english"), LogisticRegression())
-    param_grid = {'logisticregression__C': [0.01, 1, 10],
-                  'tfidfvectorizer__ngram_range': [(1,1), (1,2)]} 
+    param_grid = {'logisticregression__C': [0.01, 1, 10, 100]}
+#                  'tfidfvectorizer__ngram_range': [(1,1), (1,2)]} 
     grid = GridSearchCV(pipe, param_grid, cv=5)
     grid.fit(text_train, y_train)
-    bestScore = "Best cross-validation score: \t{:.2f}".format(grid.best_score_)
-    bestParams = "Best parameters: \t{}".format(grid.best_params_)
-    fid.write('\n'+bestScore+'\n'+bestParams + '\n')
+    printTime()
+
+    # Train status update
+    bestScore = "Best cross-validation score: \t{:.2f}\n".format(grid.best_score_)
+    bestParams = "Best parameters: \t{}\n".format(grid.best_params_)
+    fid.write(bestScore)
     print bestScore
+    fid.write(bestParams)
     print bestParams
     fid.write("\nGrid scores on development set:")
     for params, mean_score, scores in grid.grid_scores_:
         fid.write("\n\t%0.3f (+/-%0.03f) for %r"%(mean_score, scores.std() *2, params))
 
-
-    # Running test set, scoring, print to files
-    text_test = []
-    y_test = []
-    bid_lst = []
-    for (b,i,l) in test_lst :
-        bid_lst.append(b)
-        text_test.append(build_review_str(A.getrow(business_idx[b]).tocoo().data))
-        y_test.append(l)
-
+    # Evaluate over test
+    print '\tEvaluating test...'
     testScore = '\n\nGeneralized performance assessment on test: {:.2f}\n'.format(grid.score(text_test, y_test))
-    print testScore
     fid.write(testScore)
+    print testScore
     y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
-#    testReport = classification_report(y_true, y_pred)
-#    print testReport
-#    fid.write(testReport)
+    fid.write('Test values not found in JSON:')
+    fid.write(', '.join(missing))
+    fid.write('\n')
     fid.close()
+    printTime()
 
-
-    outfile = '%s/%s.scores'%(score_dir,reviewer);
+    # Actual scores printed to .score files
+    print '\tWriting .score file...'
+    outfile = '%s/%s.scores'%(score_dir,item);
     fid = open(outfile,'w')
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, y_pred, y_true)])+'\n')
     fid.close()
     printTime() 
 printTime() 
 
-print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
-scorefile = '%s/score_rank_list.results'%(score_dir)
-os.system('python score_rank_list.py -l lists_%s/ -s %s > %s'%(test_cond,score_dir,scorefile));
+
+#print'python score_rank_list.py -l lists_%s/ -s %s'%(test_cond,score_dir);
+#scorefile = '%s/score_rank_list.results'%(score_dir)
+#os.system('python score_rank_list.py -l lists_%s/ -s %s > %s'%(test_cond,score_dir,scorefile));

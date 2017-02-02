@@ -102,7 +102,7 @@ os.system('rm %s/*'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
 
 for reviewer in test_reviewer_lst :
-    [train_lst,test_lst] = util.read_key('tasks/lists_%s/%s.key' %(test_cond,reviewer),business_idx)
+    [train_lst,test_lst] = util.read_key('lists_%s/%s.key' %(test_cond,reviewer),business_idx)
     statusfile = '%s/Classification_Report.status'%(score_dir);
     fid = open(statusfile,'a')
 
