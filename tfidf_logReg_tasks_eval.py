@@ -29,8 +29,15 @@ sys.path.append('/home/hltcoe/gsell/tools/python_mods/');
 business_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_business.json';
 review_file = '/home/hltcoe/vlyzinski/yelp/yelp_academic_dataset_review.json';
 start = time.clock();
-test_cond = 'categories'
 
+if len(sys.argv) == 2 :
+    test_cond = sys.argv[1]
+else :
+    print 'ERROR: 1 argument (test_cond) expected. 0 given'
+    print '\tExpected arguments: categories | cities'
+    sys.exit()
+
+########################################
 # Print time elapse in seconds && minutes
 def printTime() :
     timeElapse = time.clock()-start 
@@ -55,24 +62,38 @@ printTime()
 print 'Generating train/test lists for %s task...'%(test_cond)
 task_dir = "tasks/%s"%(test_cond)
 os.chdir(task_dir)
-train_lst = {}
-test_lst = {}
+train_l = {}
+test_l = {}
+x_train = []
+x_test = []
+have_x = False
+bid_lst = []
 for file in glob.glob("*.train"):
     base = os.path.basename(file)
     basename = os.path.splitext(base)[0]
     test_file = '%s.test'%(basename)
+
     lst = []
     for line in open(file) :
         line = line.rstrip('\n')
         p = line.split(',')
-        lst.append([p[0],p[1]])
-    train_lst[basename] = lst
+        lst.append(p[1])
+        if not have_x :
+            x_train.append(''.join(review_txt[p[0]]))
+    train_l[basename] = lst
+
     lst = []
     for line in open(test_file) :
         line = line.rstrip('\n')
         p = line.split(',')
-        lst.append([p[0],p[1]])
-    test_lst[basename] = lst
+        bid = p[0]
+        if bid in review_txt :
+            lst.append(p[1])
+            if not have_x :
+                x_test.append(''.join(review_txt[bid]))
+                bid_lst.append(bid)
+    test_l[basename] = lst
+    have_x = True
 printTime()
 
 
@@ -82,71 +103,45 @@ datetime = time.strftime("%Y%m%d_%H%M")
 score_dir = 'projects/scores/TFIDF_%s_%s'%(test_cond,datetime)
 os.system('mkdir -p %s'%(score_dir));
 here = os.path.dirname(os.path.realpath(__file__));
-for item in test_lst :
+for item in test_l:
     statusfile = '%s/Classification_Report.status'%(score_dir);
     fid = open(statusfile,'a')
 
-    processingStatus = ('\n\nProcessing %s %s --------------\n'%(test_cond, item))
+    # Making conversion of negatives represented from 0 to -1 for sorting
+    processingStatus = ('\n\nPreparing data for %s %s --------------\n'%(test_cond, item))
     print processingStatus
     fid.write(processingStatus)
-    text_train = []
-    y_train = []
-    for (b,l) in train_lst[item] :
-        if b in review_txt :
-            text_train.append(''.join(review_txt[b]))
-            y_train.append(l)
-        else :
-            print b + ' not in review_txt'
-    text_test = []
-    y_test = []
-    bid_lst = []
-    missing = []
-    for (b,l) in test_lst[item] :
-        if b in review_txt :
-            bid_lst.append(b)
-            text_test.append(''.join(review_txt[b]))
-            y_test.append(l)
-        else :
-            missing.append(b)
-
-    # Making conversion of negatives represented from 0 to -1 for sorting
-    y_train = map(int, y_train)
-    y_test = map(int, y_test)
+    y_train = map(int, train_l[item])
+    y_test = map(int, test_l[item])
     y_train = [x if x==1 else -1 for x in y_train]
     y_test = [x if x==1 else -1 for x in y_test]
 
-    print 'FYI - test has %d found and %d missing from the total %d'%(len(y_test), len(missing), len(test_lst[item]))
     # Build over train
     print '\tBuilding over train...'
     pipe = make_pipeline(TfidfVectorizer(stop_words="english"), LogisticRegression())
     param_grid = {'logisticregression__C': [0.01, 1, 10, 100]}
 #                  'tfidfvectorizer__ngram_range': [(1,1), (1,2)]} 
     grid = GridSearchCV(pipe, param_grid, cv=5)
-    grid.fit(text_train, y_train)
-    printTime()
+    grid.fit(x_train, y_train)
 
     # Train status update
-    bestScore = "Best cross-validation score: \t{:.2f}\n".format(grid.best_score_)
-    bestParams = "Best parameters: \t{}\n".format(grid.best_params_)
-    fid.write(bestScore)
-    print bestScore
-    fid.write(bestParams)
-    print bestParams
+    bestScore = "Best cross-validation score: \t{:.2f}".format(grid.best_score_)
+    bestParams = "Best parameters: \t{}".format(grid.best_params_)
+    fid.write(bestScore + '\n')
+    print '\t\t' + bestScore
+    fid.write(bestParams + '\n')
+    print '\t\t' + bestParams
     fid.write("\nGrid scores on development set:")
     for params, mean_score, scores in grid.grid_scores_:
         fid.write("\n\t%0.3f (+/-%0.03f) for %r"%(mean_score, scores.std() *2, params))
 
     # Evaluate over test
     print '\tEvaluating test...'
-    testScore = '\n\nGeneralized performance assessment on test: {:.2f}\n'.format(grid.score(text_test, y_test))
-    fid.write(testScore)
-    print testScore
-    y_true, y_pred = y_test, grid.predict_proba(text_test)[:,1]
-    fid.write('Test values not found in JSON:')
-    fid.write(', '.join(missing))
-    fid.write('\n')
+    testScore = 'Generalized performance assessment on test: {:.2f}'.format(grid.score(x_test, y_test))
+    fid.write('\n\n' + testScore + '\n')
+    print '\t\t' + testScore
+    y_true, y_pred = y_test, grid.predict_proba(x_test)[:,1]
     fid.close()
-    printTime()
 
     # Actual scores printed to .score files
     print '\tWriting .score file...'
@@ -155,6 +150,8 @@ for item in test_lst :
     fid.write('\n'.join(['%s %.6f %d'%(x[0],x[1],x[2]) for x in zip(bid_lst, y_pred, y_true)])+'\n')
     fid.close()
     printTime() 
+    print '\n\n'
+print '\nCompleted script runtime. Evaluated in: '
 printTime() 
 
 
