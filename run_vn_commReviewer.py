@@ -11,15 +11,14 @@ import scipy
 import scipy.sparse as sp
 import time
 import sys, os
+import sklearn.preprocessing as pp
 
 sys.path.append('/home/hltcoe/apfannenstein/AttrVN')
 from attr_vn import *
 
-# Runtime check
-assert sys.version_info >= (3,0), "\nScript launched with python2. \n\tPlease re-run using Python3"
 if len(sys.argv) < 2 :
     print('\nERROR: Missing arguments for load file')
-    print('\tpython a_run_edge_advProb_eval.py csv_load_file.npz')
+    print('\tpython3 run_vn_commReviewer.py csv_load_file.npz')
     sys.exit()
 
 
@@ -29,8 +28,12 @@ def printTime() :
     timeElapse = time.clock()-start
     print('\t%.2f seconds elapsed -- %.2f minutes'%(timeElapse, timeElapse/60))
 
+# Calculate cosine distance from a sparse matrix
+def cosine_similiaries(mat) :
+    col_normed = pp.normalize(mat.tocsc(), axis=0)
+    return col_normed.T * col_normed
 
-# MAIN
+
 filename = sys.argv[1]
 print("Loading %s from memory"%(filename))
 loader = np.load(filename)
@@ -38,7 +41,8 @@ A = sp.csr_matrix((loader['data'], loader['indicies'], loader['indptr']), shape 
 printTime()
 
 print("Creating business x business matrix")
-B = A.dot(A.T)
+#B = A.dot(A.T)
+#B = cosine_similarities(B)
 printTime()
 
 print("running embed_symmetric_operator")
@@ -63,5 +67,4 @@ M = X.dot(S)
 with open('vn_math.result', 'w') as fp:
     for line in M :
         np.savetxt(fp, line, fmt='%.4f')
-#    fp.write('\n'.join('%f' %x for x in M))
 printTime()

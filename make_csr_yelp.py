@@ -1,4 +1,5 @@
 # python2
+# make_csr_yelp.py
 
 import json
 import scipy.sparse as sp
@@ -10,6 +11,8 @@ import sys, os
 import math
 import operator
 from scipy.sparse.linalg import eigsh
+import sklearn.preprocessing as pp
+
 
 #sys.path.append('/home/hltcoe/apfannenstein/AttrVN')
 #from attr_vn import *
@@ -28,6 +31,10 @@ def printTime() :
     timeElapse = time.clock()-start
     print'\t%.2f seconds elapsed -- %.2f minutes'%(timeElapse, timeElapse/60)
 printTime()
+
+def cosine_similarities(mat) :
+    col_normed_map = pp.normalize(mat.tocsc(), axis=0)
+    return col_normed_map.T * col_normed_map
 
 
 reviewer_idx = {}
@@ -54,11 +61,16 @@ for uid in reviewer_idx :
         r.append(reviewer_idx[uid])     # r
         c.append(business_idx[bid])     # c
 A = sp.csr_matrix((np.ones((len(c),)),(c,r)),shape=[B,R])
+A = A.dot(A.T)
+printTime()
+
+print'\nDetermining Cosine Similarities'
+sims = cosine_similarities(A)
 printTime()
 
 print'\nSaving CSR matrix to file'
-filename = 'yelp_csr_matrix.npz'
+filename = 'yelp_csr_cos_matrix.npz'
 #sp.save_npz('yelp_csr_matrix.npz', A)
-np.savez(filename, data = A.data, indicies = A.indices, indptr = A.indptr, shape = A.shape)
+np.savez(filename, data = sims.data, indicies = sims.indices, indptr = sims.indptr, shape = sims.shape)
 printTime()
 
