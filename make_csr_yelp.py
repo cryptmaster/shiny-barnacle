@@ -1,5 +1,7 @@
 # python2
 # make_csr_yelp.py
+# this script creates the sparse matrix for the Yelp data and saves
+# ..to file for ingest into a python3 script
 
 import json
 import scipy.sparse as sp

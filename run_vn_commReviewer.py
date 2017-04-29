@@ -1,4 +1,6 @@
-# Script takes in A as saved in memory for data
+# Script takes in A as saved in memory for data created using
+# ..make_csr_yelp.py and incorporates functions from AttrVN
+#
 # Creates two files:
 #     * egivals listed in embedding_eigvals.txt
 #     * context_features in embedding_conFeat.txt
